@@ -1,0 +1,53 @@
+---
+title: "Customer Retention - CRM Cases"
+author: "Bilal Raja"
+date: "2024-08-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+## Load Data
+
+```{r, warning=FALSE}
+wmcases <- read_xlsx("data/CRM Cases 1-08-2024 5-17-55 PM.xlsx")
+memberships <- read_xlsx("data/Office and Membership subscriptions 1-08-2024 4-52-20 PM.xlsx")
+accounts <- read_xlsx("data/CRM Company Accounts 1-08-2024 4-36-46 PM.xlsx")
+```
+
+```{r}
+glimpse(wmcases) 
+```
+```{r}
+glimpse(memberships)
+```
+```{r}
+glimpse(accounts)
+```
+
+## Wrangle data
+
+```{r}
+cases_cleaned <- wmcases |>
+  filter(!grepl("Product delivery", Subject, ignore.case = TRUE) &
+           !grepl("ETC waiver", Subject, ignore.case = TRUE) &
+           !grepl("Financial request", Subject, ignore.case = TRUE) &
+           !grepl("Purchase orders", Subject, ignore.case = TRUE) &
+           !grepl("Rent/Membership assistance", Subject, ignore.case = TRUE) &
+           !grepl("All retired ones", Subject, ignore.case = TRUE) &
+           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE))
+```
+
+```{r}
+glimpse(cases_cleaned)
+```
+
