@@ -42,7 +42,9 @@ vis_dat(accounts)
 vis_miss(accounts)
 ```
 
-## Wrangle and Clean Data
+## Wrangling the Data
+
+### Clean and Check for NAs
 
 ```{r}
 cases_clean <- wmcases |>
@@ -83,5 +85,20 @@ accounts_clean <- accounts |>
 vis_miss(cases_clean)
 vis_miss(accounts_clean)
 vis_miss(member_clean)
+```
+
+### Join the Datasets
+
+```{r}
+cases_accounts_join <- left_join(cases_clean, accounts_clean, 
+                                 by = "Account Number",
+                                 relationship = "many-to-many")
+cases_joined <- left_join(cases_accounts_join, member_clean,
+                          by = "Account Number",
+                          relationship = "many-to-many")
+```
+
+```{r}
+names(cases_joined)
 ```
 
