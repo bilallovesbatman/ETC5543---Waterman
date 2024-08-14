@@ -101,4 +101,43 @@ cases_joined <- left_join(cases_accounts_join, member_clean,
 ```{r}
 names(cases_joined)
 ```
+### Rearrange
+
+```{r}
+cases_joined <- cases_joined |>
+  select(`Account Number`, 
+         `Customer`,
+         `Industry`,
+         `Case Number`, 
+         `Case Title`, 
+         `Case Age`, 
+         `Case Age (Days)`, 
+         `Is Escalated`, 
+         everything(),
+         -Priority,
+         -`Modified On`,
+         -Satisfaction,
+         -`Sentiment Value`,
+         -`Service Level`,
+         -SLA,
+         -Severity,
+         -`Status Reason.y`,
+         -`Account Name`,
+         -`Account Category`,
+         -`Billing Method`,
+         -`Billing Frequency`,
+         -`Created On.x`,
+         -`Account Rating`,
+         -Status.y,
+         -`Product Name`,
+         -`Created On.y`,
+         -`Contract Start Date`,
+         -`Contract Expiry Date`,
+         -`Product Family`,
+         -Location,
+         -`Accounting Code`,
+         -`Status Reason.x`,
+         -Lessee) |>
+  filter(!grepl("TestPayment", `Account Number`, ignore.case = TRUE))
+```
 
