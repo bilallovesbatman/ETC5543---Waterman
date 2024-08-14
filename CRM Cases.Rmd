@@ -14,6 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(readxl)
+library(visdat)
 ```
 
 ## Load Data
@@ -24,17 +25,24 @@ memberships <- read_xlsx("data/Office and Membership subscriptions 1-08-2024 4-5
 accounts <- read_xlsx("data/CRM Company Accounts 1-08-2024 4-36-46 PM.xlsx")
 ```
 
+## Inspecting the Data
+
 ```{r}
-glimpse(wmcases) 
-```
-```{r}
-glimpse(memberships)
-```
-```{r}
-glimpse(accounts)
+vis_dat(wmcases)
+vis_miss(wmcases)
 ```
 
-## Wrangle data
+```{r}
+vis_dat(memberships)
+vis_miss(memberships)
+```
+
+```{r}
+vis_dat(accounts)
+vis_miss(accounts)
+```
+
+## Wrangle and Clean Data
 
 ```{r}
 cases_clean <- wmcases |>
@@ -44,38 +52,36 @@ cases_clean <- wmcases |>
            !grepl("Purchase orders", Subject, ignore.case = TRUE) &
            !grepl("Rent/Membership assistance", Subject, ignore.case = TRUE) &
            !grepl("All retired ones", Subject, ignore.case = TRUE) &
-           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE)) |>
+           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE)) |>    #Based on supervisor's requirement
+  filter(!is.na(`Account Number (Customer) (Account)`)) |>
+  rename(`Account Number` = `Account Number (Customer) (Account)`) |>  #Rename the column
   select(-`(Do Not Modify) Case`,
          -`(Do Not Modify) Row Checksum`,
          -`(Do Not Modify) Modified On`)
 ```
 
 ```{r}
-cases_clean |>
-  filter(is.na(`Account Number (Customer) (Account)`))
-```
-
-
-```{r}
-glimpse(cases_cleaned)
-```
-
-```{r}
 member_clean <- memberships |>
   filter(!grepl("Quote Duplicate", `Status Reason`, ignore.case = TRUE)) |>
+  filter(!is.na(`Account Number (Lessee) (Account)`)) |>
+  rename(`Account Number` = `Account Number (Lessee) (Account)`) |>
   select(-`(Do Not Modify) Primary Product`,
          -`(Do Not Modify) Row Checksum`,
          -`(Do Not Modify) Modified On`)
 ```
 
 ```{r}
-glimpse(member_clean)
-```
-```{r}
 accounts_clean <- accounts |>
   filter(!grepl("1a - Pre-billing", `Status Reason`, ignore.case = TRUE))|>
+  filter(!is.na(`Account Number`)) |>
   select(-`(Do Not Modify) Account`, 
          -`(Do Not Modify) Row Checksum`, 
          -`(Do Not Modify) Modified On`)
+```
+
+```{r}
+vis_miss(cases_clean)
+vis_miss(accounts_clean)
+vis_miss(member_clean)
 ```
 
