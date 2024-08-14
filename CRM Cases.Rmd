@@ -37,17 +37,45 @@ glimpse(accounts)
 ## Wrangle data
 
 ```{r}
-cases_cleaned <- wmcases |>
+cases_clean <- wmcases |>
   filter(!grepl("Product delivery", Subject, ignore.case = TRUE) &
            !grepl("ETC waiver", Subject, ignore.case = TRUE) &
            !grepl("Financial request", Subject, ignore.case = TRUE) &
            !grepl("Purchase orders", Subject, ignore.case = TRUE) &
            !grepl("Rent/Membership assistance", Subject, ignore.case = TRUE) &
            !grepl("All retired ones", Subject, ignore.case = TRUE) &
-           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE))
+           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE)) |>
+  select(-`(Do Not Modify) Case`,
+         -`(Do Not Modify) Row Checksum`,
+         -`(Do Not Modify) Modified On`)
 ```
 
 ```{r}
+cases_clean |>
+  filter(is.na(`Account Number (Customer) (Account)`))
+```
+
+
+```{r}
 glimpse(cases_cleaned)
+```
+
+```{r}
+member_clean <- memberships |>
+  filter(!grepl("Quote Duplicate", `Status Reason`, ignore.case = TRUE)) |>
+  select(-`(Do Not Modify) Primary Product`,
+         -`(Do Not Modify) Row Checksum`,
+         -`(Do Not Modify) Modified On`)
+```
+
+```{r}
+glimpse(member_clean)
+```
+```{r}
+accounts_clean <- accounts |>
+  filter(!grepl("1a - Pre-billing", `Status Reason`, ignore.case = TRUE))|>
+  select(-`(Do Not Modify) Account`, 
+         -`(Do Not Modify) Row Checksum`, 
+         -`(Do Not Modify) Modified On`)
 ```
 
