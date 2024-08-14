@@ -141,3 +141,34 @@ cases_joined <- cases_joined |>
   filter(!grepl("TestPayment", `Account Number`, ignore.case = TRUE))
 ```
 
+## Preliminary Analysis
+
+```{r}
+summary(cases_joined)
+```
+
+```{r}
+table(cases_joined$Status.x)
+```
+
+```{r}
+ggplot(cases_joined, aes(
+  x = Status.x, 
+  y = `Case Age (Days)`,
+  fill = Status.x
+)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Case Age by Stats",
+       x = "Case Status",
+       y = "Case Age (Days)")
+```
+
+```{r}
+cases_joined |>
+  group_by(Status.x) |>
+  summarise(Count = n(),
+            Mean_Age = mean(`Case Age (Days)`, na.rm = TRUE),
+            Prop_Leaving = mean(`Status Reason` == "off-boarding", na.rm = TRUE))
+```
+
