@@ -21,7 +21,7 @@ library(visdat)
 
 ```{r, warning=FALSE}
 wmcases <- read_xlsx("data/CRM Cases 1-08-2024 5-17-55 PM.xlsx")
-memberships <- read_xlsx("data/Office and Membership subscriptions 1-08-2024 4-52-20 PM.xlsx")
+memberships <- read_xlsx("data/All Products 2023 to now.xlsx")
 accounts <- read_xlsx("data/CRM Company Accounts 1-08-2024 4-36-46 PM.xlsx")
 ```
 
@@ -65,11 +65,9 @@ cases_clean <- wmcases |>
 ```{r}
 member_clean <- memberships |>
   filter(!grepl("Quote Duplicate", `Status Reason`, ignore.case = TRUE)) |>
+  filter(!grepl("Casual Hire", `Accounting Code`, ignore.case = TRUE)) |>
   filter(!is.na(`Account Number (Lessee) (Account)`)) |>
-  rename(`Account Number` = `Account Number (Lessee) (Account)`) |>
-  select(-`(Do Not Modify) Primary Product`,
-         -`(Do Not Modify) Row Checksum`,
-         -`(Do Not Modify) Modified On`)
+  rename(`Account Number` = `Account Number (Lessee) (Account)`)
 ```
 
 ```{r}
@@ -131,9 +129,6 @@ cases_joined <- cases_joined |>
          -Status.y,
          -`Product Name`,
          -`Created On.y`,
-         -`Contract Start Date`,
-         -`Contract Expiry Date`,
-         -`Product Family`,
          -Location,
          -`Accounting Code`,
          -`Status Reason.x`,
@@ -257,5 +252,19 @@ ggplot(filtered_cases, aes(x = `Case Age (Days)`, y = predicted_prob, color = St
 
 
 
+```
+
+```{r}
+# Load necessary library
+library(ggplot2)
+
+# Create calibration plot
+ggplot(filtered_cases, aes(x = predicted_prob, y = as.numeric(`Status Reason` == "Off-boarding"))) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "loess") +
+  labs(title = "Calibration Plot",
+       x = "Predicted Probability",
+       y = "Observed Proportion") +
+  theme_minimal()
 ```
 
