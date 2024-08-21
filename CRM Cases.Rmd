@@ -138,7 +138,8 @@ cases_joined <- cases_joined |>
          -`Accounting Code`,
          -`Status Reason.x`,
          -Lessee) |>
-  filter(!grepl("TestPayment", `Account Number`, ignore.case = TRUE))
+  filter(!grepl("TestPayment", `Account Number`, ignore.case = TRUE)) |>
+  filter(!grepl("Waterman Workspaces", `Customer`, ignore.case = TRUE))
 ```
 
 ## Preliminary Analysis
@@ -169,6 +170,92 @@ cases_joined |>
   group_by(Status.x) |>
   summarise(Count = n(),
             Mean_Age = mean(`Case Age (Days)`, na.rm = TRUE),
-            Prop_Leaving = mean(`Status Reason` == "off-boarding", na.rm = TRUE))
+            Prop_Leaving = mean(`Status Reason` == "Off-boarding", na.rm = TRUE))
+```
+
+### Remove Outliers
+
+```{r}
+
+Q1 <- quantile(cases_joined$`Case Age (Days)`, 0.25)
+Q3 <- quantile(cases_joined$`Case Age (Days)`, 0.75)
+IQR <- Q3 - Q1
+
+cases_rmoutlier <- cases_joined |>
+  filter(`Case Age (Days)` >= (Q1 - 1.5 * IQR) & `Case Age (Days)` <= (Q3 + 1.5 * IQR))
+```
+
+
+```{r}
+ggplot(cases_rmoutlier, aes(
+  x = Status.x, 
+  y = `Case Age (Days)`,
+  fill = Status.x
+)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Case Age by Stats",
+       x = "Case Status",
+       y = "Case Age (Days)")
+```
+
+```{r}
+cases_rmoutlier |>
+  group_by(Status.x) |>
+  summarise(Count = n(),
+            Mean_Age = mean(`Case Age (Days)`, na.rm = TRUE),
+            Prop_Leaving = mean(`Status Reason` == "Off-boarding", na.rm = TRUE))
+```
+
+```{r}
+glm_model <- lm(`Status Reason` == "Off-boarding" ~ Status.x + `Case Age (Days)` + `Is Escalated`, 
+                  data = cases_rmoutlier, family = binomial)
+summary(glm_model)
+
+```
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(broom)
+
+# Create a tidy data frame of model coefficients
+tidy_glm <- broom::tidy(glm_model)
+
+# Create a coefficient plot
+ggplot(tidy_glm, aes(x = estimate, y = term)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin = estimate - std.error, xmax = estimate + std.error), height = 0.2) +
+  labs(title = "Coefficient Plot",
+       x = "Estimate",
+       y = "Predictor Variables") +
+  theme_minimal()
+
+```
+
+```{r}
+# Step 1: Filter out rows with missing values in relevant columns
+filtered_cases <- cases_rmoutlier %>%
+  filter(!is.na(`Status Reason`) & !is.na(Status.x) & !is.na(`Case Age (Days)`) & !is.na(`Is Escalated`))
+
+# Step 2: Fit the model again with the filtered data
+glm_model <- glm(`Status Reason` == "Off-boarding" ~ Status.x + `Case Age (Days)` + `Is Escalated`, 
+                 data = filtered_cases, family = binomial)
+
+# Step 3: Generate predicted probabilities
+filtered_cases$predicted_prob <- predict(glm_model, type = "response")
+
+# Step 4: Create the regression plot
+ggplot(filtered_cases, aes(x = `Case Age (Days)`, y = predicted_prob, color = Status.x)) +
+  geom_point(alpha = 0.3) +  # Points for actual data
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE) +  # Logistic regression line
+  labs(title = "Logistic Regression Plot",
+       x = "Case Age (Days)",
+       y = "Predicted Probability of Off-boarding",
+       color = "Status") +
+  theme_minimal()
+
+
+
 ```
 
