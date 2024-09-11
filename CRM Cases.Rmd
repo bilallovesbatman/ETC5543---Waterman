@@ -250,8 +250,6 @@ ggplot(filtered_cases, aes(x = `Case Age (Days)`, y = predicted_prob, color = St
        color = "Status") +
   theme_minimal()
 
-
-
 ```
 
 ```{r}
@@ -265,6 +263,6 @@ ggplot(filtered_cases, aes(x = predicted_prob, y = as.numeric(`Status Reason` ==
   labs(title = "Calibration Plot",
        x = "Predicted Probability",
        y = "Observed Proportion") +
-  theme_minimal()
+  theme_minimal() 
 ```
 
