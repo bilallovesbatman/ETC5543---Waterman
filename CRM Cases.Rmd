@@ -15,6 +15,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl)
 library(visdat)
+library(pROC)
+library(caret)
 ```
 
 ## Load Data
@@ -109,6 +111,21 @@ cases_joined <- cases_joined |>
   filter(!grepl("Waterman Workspaces", `Customer`, ignore.case = TRUE))
 ```
 
+
+```{r}
+cases_filtered <- cases_filtered |>
+  mutate(`Is Escalated` = ifelse(`Is Escalated` == "Yes", 1, 0))
+
+cases_filtered_encoded <- cases_filtered |>
+  select(`Account Number`, `Case Age (Days)`, `Is Escalated`, Site, `Product Category`, `Status Reason.y`) |>
+  mutate(churned = ifelse(`Status Reason.y` %in% churn_statuses, 1, 0)) |>
+  dummy_cols(select_columns = c("Site", "Product Category"))
+
+glimpse(cases_filtered_encoded)
+
+```
+
+
 ## Defining Churn Statuses
 
 ```{r}
@@ -119,6 +136,9 @@ cases_filtered <- cases_joined |>
 
 ```
 
+```{r}
+
+```
 
 ## TRIALING FEATURE ENGINEERING
 
@@ -226,6 +246,49 @@ cor(customer_features_clean |> select(num_cases, avg_case_age, churned))
 
 ```
 
+## Modeling
+
+### Overall Average
+
+```{r}
+age_benchmark <- mean(customer_features_clean$avg_case_age)
+
+customer_features_clean <- customer_features_clean |>
+  mutate(case_age_ratio = avg_case_age / age_benchmark)
+```
+
+
+### Lm
+
+```{r}
+linear <- lm(churned ~ num_cases + case_age_ratio, data = customer_features_clean)
+summary(linear)
+```
+### Logistic Regression
+
+```{r}
+log_model <- glm(churned ~ num_cases + case_age_ratio, data = customer_features_clean, family = binomial)
+summary(log_model)
+
+```
+```{r}
+lm_predictions <- predict(linear, customer_features_clean)
+
+log_predictions <- predict(log_model, customer_features_clean)
+
+roc_lm <- roc(customer_features_clean$churned, lm_predictions)
+
+roc_log <- roc(customer_features_clean$churned, log_predictions)
+
+```
+```{r}
+ggroc(list(Linear_Regression = roc_lm, Logistic_Regression = roc_log)) +
+  ggtitle("ROC Curves Comparison") +
+  theme_minimal() +
+  labs(color = "Model") +
+  scale_color_manual(values = c("blue", "red"))
+
+```
 
 
 ## Preliminary Analysis
