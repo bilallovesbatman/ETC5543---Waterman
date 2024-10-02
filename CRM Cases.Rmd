@@ -151,7 +151,9 @@ customer_features <- cases_filtered |>
   summarise(
     num_cases = n(),
     avg_case_age = median(`Case Age (Days)`, na.rm = TRUE),
-    churned = as.integer(any(`Status Reason.y` %in% churn_statuses))
+    churned = as.integer(any(`Status Reason.y` %in% churn_statuses)),
+    product_category = first(`Product Category`),  # or use mode if there's variability
+    is_escalated = max(`Is Escalated`)              # Use max since it's already binary
   )
 
 ```
@@ -223,7 +225,7 @@ ggplot(customer_features_clean, aes(x = avg_case_age, fill = as.factor(churned))
 ```
 
 ```{r}
-cor(customer_features_clean |> select(num_cases, avg_case_age, churned))
+cor(customer_features_clean |> select(num_cases, avg_case_age, is_escalated, churned))
 
 ```
 
@@ -242,37 +244,16 @@ customer_features_clean <- customer_features_clean |>
 ### Lm
 
 ```{r}
-linear <- lm(churned ~ num_cases + case_age_ratio, data = customer_features_clean)
+linear <- lm(churned ~ num_cases + case_age_ratio + is_escalated, data = customer_features_clean)
 summary(linear)
 ```
 ### Logistic Regression
 
 ```{r}
-log_model <- glm(churned ~ num_cases + case_age_ratio, data = customer_features_clean, family = binomial)
+log_model <- glm(churned ~ num_cases + case_age_ratio + is_escalated, data = customer_features_clean, family = binomial)
 summary(log_model)
 
 ```
-
-```{r}
-lm_predictions <- predict(linear, customer_features_clean)
-
-log_predictions <- predict(log_model, customer_features_clean)
-
-roc_lm <- roc(customer_features_clean$churned, lm_predictions)
-
-roc_log <- roc(customer_features_clean$churned, log_predictions)
-
-```
-
-```{r}
-ggroc(list(Linear_Regression = roc_lm, Logistic_Regression = roc_log)) +
-  ggtitle("ROC Curves Comparison") +
-  theme_minimal() +
-  labs(color = "Model") +
-  scale_color_manual(values = c("blue", "red"))
-
-```
-
 
 ## Preliminary Analysis
 
