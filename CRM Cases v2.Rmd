@@ -1,0 +1,217 @@
+---
+title: "CRM Cases V2"
+author: "Bilal Raja"
+date: "2024-10-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(visdat)
+library(pROC)
+library(caret)
+library(broom)  # for tidying model results
+```
+
+```{r, warning=FALSE}
+wmcases <- read_xlsx("data/CRM Cases 1-08-2024 5-17-55 PM.xlsx")
+memberships <- read_xlsx("data/All Products 2023 to now.xlsx")
+
+```
+
+```{r}
+vis_dat(wmcases)
+vis_miss(wmcases)
+
+vis_dat(memberships)
+vis_miss(memberships)
+
+```
+
+```{r}
+cases_clean <- wmcases |>
+  filter(!grepl("Product delivery", Subject, ignore.case = TRUE) &
+           !grepl("ETC waiver", Subject, ignore.case = TRUE) &
+           !grepl("Financial request", Subject, ignore.case = TRUE) &
+           !grepl("Purchase orders", Subject, ignore.case = TRUE) &
+           !grepl("Rent/Membership assistance", Subject, ignore.case = TRUE) &
+           !grepl("All retired ones", Subject, ignore.case = TRUE) &
+           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE)) |>
+  filter(!is.na(`Account Number (Customer) (Account)`)) |>
+  rename(`Account Number` = `Account Number (Customer) (Account)`) |>  # Rename the column
+  select(-`(Do Not Modify) Case`, -`(Do Not Modify) Row Checksum`, -`(Do Not Modify) Modified On`)
+
+member_clean <- memberships |>
+  filter(!grepl("Quote Duplicate", `Status Reason`, ignore.case = TRUE)) |>
+  filter(!grepl("Casual Hire", `Accounting Code`, ignore.case = TRUE)) |>
+  filter(!is.na(`Account Number (Lessee) (Account)`)) |>
+  rename(`Account Number` = `Account Number (Lessee) (Account)`)
+
+```
+
+```{r}
+cases_joined <- left_join(cases_clean, member_clean, by = "Account Number")
+
+```
+
+```{r}
+cases_joined <- cases_joined |>
+  select(`Account Number`, `Customer`, `Case Number`, `Case Title`, `Case Age`, `Case Age (Days)`, 
+         `Is Escalated`, everything(), -Priority, -`Modified On`, -Satisfaction, -`Sentiment Value`, 
+         -`Service Level`, -SLA, -Severity, -Status.y, -`Product Name`, -Location, -`Accounting Code`, 
+         -`Status Reason.x`, -`Industry (Lessee) (Account)`, -Lessee) |>
+  filter(!grepl("TestPayment", `Account Number`, ignore.case = TRUE)) |>
+  filter(!grepl("Waterman Workspaces", `Customer`, ignore.case = TRUE))
+
+```
+
+```{r}
+churn_statuses <- c("Inactive - Customer Cancelled", "Off-boarding", "Inactive")
+
+cases_filtered <- cases_joined |>
+  filter(`Status Reason.y` %in% churn_statuses | is.na(`Status Reason.y`)) |>
+  mutate(`Is Escalated` = ifelse(`Is Escalated` == "Yes", 1, 0))
+
+```
+
+```{r}
+cases_count <- cases_filtered |>
+  group_by(`Account Number`) |>
+  summarise(num_cases = n())
+
+cases_count
+
+```
+
+```{r}
+avg_case_age <- cases_filtered |>
+  group_by(`Account Number`) |>
+  summarise(avg_case_age = median(`Case Age (Days)`, na.rm = TRUE))
+
+avg_case_age
+```
+
+
+```{r}
+customer_features <- cases_count |>
+  inner_join(avg_case_age, by = "Account Number")
+```
+
+```{r}
+customer_features <- cases_filtered |>
+  group_by(`Account Number`) |>
+  summarise(
+    num_cases = n(),
+    avg_case_age = median(`Case Age (Days)`, na.rm = TRUE),
+    churned = as.integer(any(`Status Reason.y` %in% churn_statuses)),
+    product_category = first(`Product Category`),  # or use mode if there's variability
+    is_escalated = max(`Is Escalated`)              # Use max since it's already binary
+  )
+
+```
+
+```{r}
+ggplot(customer_features, aes(x = num_cases, fill = as.factor(churned))) +
+  geom_histogram(position = "dodge", binwidth = 1) +
+  labs(title = "Distribution of Number of Cases", x = "Number of Cases", fill = "Churned")
+
+ggplot(customer_features, aes(x = avg_case_age, fill = as.factor(churned))) +
+  geom_histogram(position = "dodge", binwidth = 1) +
+  labs(title = "Distribution of Average Case Age", x = "Average Case Age (Days)", fill = "Churned")
+
+```
+
+```{r}
+# Outlier detection for average case age
+Q1_age <- quantile(customer_features$avg_case_age, 0.25, na.rm = TRUE)
+Q3_age <- quantile(customer_features$avg_case_age, 0.75, na.rm = TRUE)
+IQR_age <- Q3_age - Q1_age
+
+lower_bound_age <- Q1_age - 1.5 * IQR_age
+upper_bound_age <- Q3_age + 1.5 * IQR_age
+
+customer_features_clean <- customer_features |>
+  filter(avg_case_age >= lower_bound_age & avg_case_age <= upper_bound_age)
+
+# Outlier detection for number of cases
+Q1_num <- quantile(customer_features_clean$num_cases, 0.25, na.rm = TRUE)
+Q3_num <- quantile(customer_features_clean$num_cases, 0.75, na.rm = TRUE)
+IQR_num <- Q3_num - Q1_num
+
+lower_bound_num <- Q1_num - 1.5 * IQR_num
+upper_bound_num <- Q3_num + 1.5 * IQR_num
+
+customer_features_clean <- customer_features_clean |>
+  filter(num_cases >= lower_bound_num & num_cases <= upper_bound_num)
+
+```
+
+```{r}
+ggplot(customer_features_clean, aes(x = num_cases, fill = as.factor(churned))) +
+  geom_histogram(position = "dodge", binwidth = 1) +
+  labs(title = "Distribution of Number of Cases", x = "Number of Cases", fill = "Churned")
+
+ggplot(customer_features_clean, aes(x = avg_case_age, fill = as.factor(churned))) +
+  geom_histogram(position = "dodge", binwidth = 1) +
+  labs(title = "Distribution of Average Case Age", x = "Average Case Age (Days)", fill = "Churned")
+```
+
+```{r}
+cor(customer_features_clean |> select(num_cases, avg_case_age, is_escalated, churned))
+
+```
+
+```{r}
+log_model <- glm(churned ~ num_cases + avg_case_age + is_escalated, data = customer_features_clean, family = binomial)
+summary(log_model)
+
+```
+
+```{r}
+model_interaction <- glm(formula = churned ~ num_cases * avg_case_age + is_escalated, 
+                         family = binomial, data = customer_features_clean)
+summary(model_interaction)
+
+```
+
+```{r}
+customer_features_clean$predicted_prob <- predict(log_model, type = "response")
+
+ggplot(customer_features_clean, aes(x = num_cases, y = predicted_prob, color = as.factor(churned))) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE) +
+  labs(title = "Logistic Regression Predictions", x = "Number of Cases", y = "Predicted Probability of Churn")
+
+```
+
+```{r}
+cases_summary <- cases_joined %>%
+  filter(`Status Reason.y` %in% churn_statuses) %>%
+  group_by(`Account Number`, Customer, `Status Reason.y`) %>%
+  summarize(
+    total_cases = n(),
+    avg_case_age = mean(`Case Age (Days)`, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+# Step 2: Clean the summary
+cases_summary_clean <- cases_summary %>%
+  filter(!is.na(total_cases) & !is.na(avg_case_age))
+
+ggplot(cases_summary, aes(x = total_cases)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Number of Cases for Churned Customers", x = "Number of Cases", y = "Count of Customers")
+
+ggplot(cases_summary, aes(x = "", y = avg_case_age)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = "Case Resolution Time for Churned Customers", y = "Average Case Age (Days)") +
+  theme(axis.text.x = element_blank())
+
+```
+
+

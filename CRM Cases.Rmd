@@ -255,6 +255,31 @@ summary(log_model)
 
 ```
 
+```{r}
+model_interaction <- glm(formula = churned ~ num_cases * case_age_ratio + is_escalated,
+                         family = binomial, data = customer_features_clean)
+
+summary(model_interaction)
+
+```
+
+```{r}
+model_interaction <- glm(formula = churned ~ case_age_ratio + num_cases * is_escalated, 
+                         family = binomial, data = customer_features_clean)
+
+summary(model_interaction)
+
+```
+
+```{r}
+model_interaction <- glm(formula = churned ~ case_age_ratio + num_cases + case_age_ratio * is_escalated, 
+                         family = binomial, data = customer_features_clean)
+
+summary(model_interaction)
+
+```
+
+
 ## Preliminary Analysis
 
 ```{r}
