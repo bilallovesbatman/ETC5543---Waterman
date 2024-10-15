@@ -208,9 +208,9 @@ ggplot(customer_features_clean, aes(x = avg_case_age, fill = as.factor(churned))
 
 ### Logistic Regression Models: Developed models to assess the impact of customer features on churn.
 
-::: panel-tabset
+::: {.panel-tabset}
 
-Without Interaction Terms
+## Without Interaction Terms
 
 ```{r}
 # Function to create a summary table
@@ -233,25 +233,25 @@ summary(log_model)
 
 ```
 
-With interaction terms
+## With Interaction Terms
 
 ```{r}
 summary(int_model)
 
 ```
+
 :::
----
 
-## Recommendations and Limitations {.center}
+# Recommendations and Limitations {.center}
 
----
-### Future Directions
+## Future Directions
 ::: {.incremental}
 - **Proactive Engagement**: Reach out to customers with a high number of cases or long resolution times.
 - **Monitoring Escalations**: Develop protocols for cases marked as escalated, ensuring timely follow-up.
 - **Data Completeness**: Data extracted from CRM incomplete, require further key variables.
 - **Short Time Frame**: Analysis is based on a limited period; longer-term trends could differ.
 :::
+
 ---
 
 ## Q/A {.center}
