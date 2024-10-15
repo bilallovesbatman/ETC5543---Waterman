@@ -13,9 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(readxl)
 library(visdat)
-library(pROC)
-library(caret)
-library(broom)  # for tidying model results
+library(broom)
 ```
 
 ```{r, warning=FALSE}
@@ -43,7 +41,7 @@ cases_clean <- wmcases |>
            !grepl("All retired ones", Subject, ignore.case = TRUE) &
            !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE)) |>
   filter(!is.na(`Account Number (Customer) (Account)`)) |>
-  rename(`Account Number` = `Account Number (Customer) (Account)`) |>  # Rename the column
+  rename(`Account Number` = `Account Number (Customer) (Account)`) |>
   select(-`(Do Not Modify) Case`, -`(Do Not Modify) Row Checksum`, -`(Do Not Modify) Modified On`)
 
 member_clean <- memberships |>
@@ -65,6 +63,9 @@ cases_joined <- cases_joined |>
          `Is Escalated`, everything(), -Priority, -`Modified On`, -Satisfaction, -`Sentiment Value`, 
          -`Service Level`, -SLA, -Severity, -Status.y, -`Product Name`, -Location, -`Accounting Code`, 
          -`Status Reason.x`, -`Industry (Lessee) (Account)`, -Lessee) |>
+  mutate(
+    Site = as.factor(Site),
+    `Product Category` = as.factor(`Product Category`)) |>
   filter(!grepl("TestPayment", `Account Number`, ignore.case = TRUE)) |>
   filter(!grepl("Waterman Workspaces", `Customer`, ignore.case = TRUE))
 
@@ -85,7 +86,6 @@ cases_count <- cases_filtered |>
   summarise(num_cases = n())
 
 cases_count
-
 ```
 
 ```{r}
@@ -109,8 +109,16 @@ customer_features <- cases_filtered |>
     num_cases = n(),
     avg_case_age = median(`Case Age (Days)`, na.rm = TRUE),
     churned = as.integer(any(`Status Reason.y` %in% churn_statuses)),
-    product_category = first(`Product Category`),  # or use mode if there's variability
-    is_escalated = max(`Is Escalated`)              # Use max since it's already binary
+    product_category = first(`Product Category`),  # Ensure logical first() use
+    site = first(`Site`),  # Assuming consistent site for account
+    is_escalated = max(`Is Escalated`, na.rm = TRUE)  # Escalation as binary
+  )
+
+# Ensure 'product_category' and 'site' remain as factors
+customer_features <- customer_features |>
+  mutate(
+    product_category = as.factor(product_category),
+    site = as.factor(site)
   )
 
 ```
@@ -167,27 +175,36 @@ cor(customer_features_clean |> select(num_cases, avg_case_age, is_escalated, chu
 ```
 
 ```{r}
-log_model <- glm(churned ~ num_cases + avg_case_age + is_escalated, data = customer_features_clean, family = binomial)
+log_model <- glm(churned ~ num_cases + avg_case_age + is_escalated + site, data = customer_features_clean, family = binomial)
 summary(log_model)
 
 ```
 
 ```{r}
-model_interaction <- glm(formula = churned ~ num_cases * avg_case_age + is_escalated, 
-                         family = binomial, data = customer_features_clean)
-summary(model_interaction)
+# Create interaction terms
+customer_features_clean <- customer_features_clean %>%
+  mutate(
+    num_cases_escalated = num_cases * is_escalated,
+    case_age_escalated = avg_case_age * is_escalated,
+    site_escalated = interaction(site, is_escalated)
+  )
 
+```
+
+
+```{r}
+int_model <- glm(churned ~ num_cases + avg_case_age + is_escalated + site + num_cases_escalated + case_age_escalated, data = customer_features_clean, family = binomial)
+
+summary(int_model)
 ```
 
 ```{r}
-customer_features_clean$predicted_prob <- predict(log_model, type = "response")
-
-ggplot(customer_features_clean, aes(x = num_cases, y = predicted_prob, color = as.factor(churned))) +
-  geom_point(alpha = 0.3) +
-  geom_smooth(method = "glm", method.args = list(family = "binomial"), se = TRUE) +
-  labs(title = "Logistic Regression Predictions", x = "Number of Cases", y = "Predicted Probability of Churn")
+# Compare models using AIC and BIC
+AIC(log_model, int_model)
+BIC(log_model, int_model)
 
 ```
+
 
 ```{r}
 cases_summary <- cases_joined %>%

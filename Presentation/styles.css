@@ -1,0 +1,67 @@
+/* styles.css */
+
+/* General styles */
+body {
+  font-family: Arial, sans-serif; /* Preferred font */
+  font-size: 0.85em; /* Base font size for all text */
+  line-height: 1.6; /* Increased line spacing for better readability */
+}
+
+/* Header styles */
+h1 {
+  font-size: 2.8em; /* Main title size, slightly larger */
+  text-align: center; /* Center align */
+  margin: 20px 0; /* Add margin for spacing */
+}
+
+h2 {
+  font-size: 2.2em; /* Section title size, larger for visibility */
+  text-align: center; /* Center align */
+  margin: 15px 0; /* Add margin for spacing */
+}
+
+h3 {
+  font-size: 1.8em; /* Subsection title size */
+  margin: 10px 0; /* Add margin for spacing */
+}
+
+h4, h5, h6 {
+  font-size: 1.4em; /* Smaller titles */
+}
+
+/* Paragraph styles */
+p {
+  font-size: 0.95em; /* Base paragraph font size, slightly larger */
+  margin: 0 0 15px; /* Add margin for spacing between paragraphs */
+}
+
+/* Slide specific styles */
+.reveal .slides {
+  font-size: 0.85em; /* Overall slide font size */
+}
+
+.reveal h2, .reveal h3, .reveal h4 {
+  margin-top: 20px; /* Add margin to headings */
+}
+
+/* Adjust figure alignment and size */
+.reveal img {
+  max-width: 100%; /* Ensure images fit within slide */
+  height: auto; /* Maintain aspect ratio */
+}
+
+/* Allow vertical scrolling */
+.reveal {
+  overflow-y: auto; /* Enables vertical scrolling */
+}
+
+/* Optional: Set a maximum height for slides */
+.reveal .slides {
+  max-height: 90vh; /* Adjust the height as needed */
+  overflow-y: auto; /* Allows overflow scrolling */
+}
+
+/* Padding around slide content */
+.reveal section {
+  padding: 1em; /* Add padding around content */
+}

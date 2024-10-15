@@ -1,0 +1,258 @@
+---
+title: "Waterman Workspaces: Customer Retention Through Case Management"
+author: "Bilal Raja"
+format: 
+  revealjs: 
+    toc: false
+    slide-number: true
+    transition: slide
+    fig-align: center
+    revealjs:
+      margin: 0.05
+      center: true
+      fontsize: 10pt
+      theme: sky
+      css: styles.css
+editor: visual
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE, 
+  warning = FALSE, 
+  message = FALSE,
+  fig.align = "center",
+  out.width = "80%"
+)
+
+library(tidyverse)
+library(readxl)
+library(visdat)
+library(broom)
+library(kableExtra)
+
+wmcases <- read_xlsx("../data/CRM Cases 1-08-2024 5-17-55 PM.xlsx")
+memberships <- read_xlsx("../data/All Products 2023 to now.xlsx")
+
+cases_clean <- wmcases |>
+  filter(!grepl("Product delivery", Subject, ignore.case = TRUE) &
+           !grepl("ETC waiver", Subject, ignore.case = TRUE) &
+           !grepl("Financial request", Subject, ignore.case = TRUE) &
+           !grepl("Purchase orders", Subject, ignore.case = TRUE) &
+           !grepl("Rent/Membership assistance", Subject, ignore.case = TRUE) &
+           !grepl("All retired ones", Subject, ignore.case = TRUE) &
+           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE)) |>
+  filter(!is.na(`Account Number (Customer) (Account)`)) |>
+  rename(`Account Number` = `Account Number (Customer) (Account)`) |>
+  select(-`(Do Not Modify) Case`, -`(Do Not Modify) Row Checksum`, -`(Do Not Modify) Modified On`)
+
+member_clean <- memberships |>
+  filter(!grepl("Quote Duplicate", `Status Reason`, ignore.case = TRUE)) |>
+  filter(!grepl("Casual Hire", `Accounting Code`, ignore.case = TRUE)) |>
+  filter(!is.na(`Account Number (Lessee) (Account)`)) |>
+  rename(`Account Number` = `Account Number (Lessee) (Account)`)
+
+cases_joined <- left_join(cases_clean, member_clean, by = "Account Number")
+
+cases_joined <- cases_joined |>
+  select(`Account Number`, `Customer`, `Case Number`, `Case Title`, `Case Age`, `Case Age (Days)`, 
+         `Is Escalated`, everything(), -Priority, -`Modified On`, -Satisfaction, -`Sentiment Value`, 
+         -`Service Level`, -SLA, -Severity, -Status.y, -`Product Name`, -Location, -`Accounting Code`, 
+         -`Status Reason.x`, -`Industry (Lessee) (Account)`, -Lessee) |>
+  mutate(
+    Site = as.factor(Site),
+    `Product Category` = as.factor(`Product Category`)) |>
+  filter(!grepl("TestPayment", `Account Number`, ignore.case = TRUE)) |>
+  filter(!grepl("Waterman Workspaces", `Customer`, ignore.case = TRUE))
+
+churn_statuses <- c("Inactive - Customer Cancelled", "Off-boarding", "Inactive")
+
+cases_filtered <- cases_joined |>
+  filter(`Status Reason.y` %in% churn_statuses | is.na(`Status Reason.y`)) |>
+  mutate(`Is Escalated` = ifelse(`Is Escalated` == "Yes", 1, 0))
+
+
+cases_count <- cases_filtered |>
+  group_by(`Account Number`) |>
+  summarise(num_cases = n())
+
+avg_case_age <- cases_filtered |>
+  group_by(`Account Number`) |>
+  summarise(avg_case_age = median(`Case Age (Days)`, na.rm = TRUE))
+
+customer_features <- cases_count |>
+  inner_join(avg_case_age, by = "Account Number")
+
+customer_features <- cases_filtered |>
+  group_by(`Account Number`) |>
+  summarise(
+    num_cases = n(),
+    avg_case_age = median(`Case Age (Days)`, na.rm = TRUE),
+    churned = as.integer(any(`Status Reason.y` %in% churn_statuses)),
+    product_category = first(`Product Category`),
+    site = first(`Site`),
+    is_escalated = max(`Is Escalated`, na.rm = TRUE)
+  )
+
+customer_features <- customer_features |>
+  mutate(
+    product_category = as.factor(product_category),
+    site = as.factor(site)
+  )
+
+# Outlier detection for average case age
+Q1_age <- quantile(customer_features$avg_case_age, 0.25, na.rm = TRUE)
+Q3_age <- quantile(customer_features$avg_case_age, 0.75, na.rm = TRUE)
+IQR_age <- Q3_age - Q1_age
+
+lower_bound_age <- Q1_age - 1.5 * IQR_age
+upper_bound_age <- Q3_age + 1.5 * IQR_age
+
+customer_features_clean <- customer_features |>
+  filter(avg_case_age >= lower_bound_age & avg_case_age <= upper_bound_age)
+
+# Outlier detection for number of cases
+Q1_num <- quantile(customer_features_clean$num_cases, 0.25, na.rm = TRUE)
+Q3_num <- quantile(customer_features_clean$num_cases, 0.75, na.rm = TRUE)
+IQR_num <- Q3_num - Q1_num
+
+lower_bound_num <- Q1_num - 1.5 * IQR_num
+upper_bound_num <- Q3_num + 1.5 * IQR_num
+
+customer_features_clean <- customer_features_clean |>
+  filter(num_cases >= lower_bound_num & num_cases <= upper_bound_num)
+
+log_model <- glm(churned ~ num_cases + avg_case_age + is_escalated + site, data = customer_features_clean, family = binomial)
+
+customer_features_clean <- customer_features_clean |>
+  mutate(
+    num_cases_escalated = num_cases * is_escalated,
+    case_age_escalated = avg_case_age * is_escalated,
+    site_escalated = interaction(site, is_escalated)
+  )
+
+int_model <- glm(churned ~ num_cases + avg_case_age + is_escalated + site + num_cases_escalated + case_age_escalated, data = customer_features_clean, family = binomial)
+
+```
+
+## Introduction {.center}
+
+------------------------------------------------------------------------
+
+::: {.incremental}
+### Background
+
+-   **Company Overview**: Waterman Workspaces provides co-sharing workspaces aimed at fostering collaboration and flexibility.
+-   **Objective**: Analyze whether the number of CRM cases and their characteristics lead to customer churn.
+
+### Why This Analysis Matters
+
+-   **Customer Retention**: Retaining customers is more cost-effective than acquiring new ones.
+-   **Data-Driven Decisions**: Understanding factors leading to churn can help in crafting targeted retention strategies.
+:::
+------------------------------------------------------------------------
+
+## Methodology {.center}
+
+------------------------------------------------------------------------
+
+::: {.incremental}
+### Data Preparation
+
+-   **Data Sources**:
+    -   CRM cases from Waterman Workspaces.
+    -   Membership information for account analysis.
+-   **Data Cleaning**: Filtered out irrelevant cases and ensured consistency in key variables.
+
+### Key Variables
+
+-   **Churn Statuses**: Defined churn based on specific inactive statuses (e.g., "Inactive - Customer Cancelled").
+-   **Customer Features**: Created metrics such as the number of cases, average case age, and escalation status.
+:::
+
+------------------------------------------------------------------------
+
+## Exploratory Data Analysis (EDA) {.center}
+
+------------------------------------------------------------------------
+
+### Distribution of Cases
+
+Understanding the distribution of cases by their number and average resolution age.
+
+::: panel-tabset
+### Number of Cases
+
+```{r}
+ggplot(customer_features_clean, aes(x = num_cases, fill = as.factor(churned))) +
+  geom_histogram(position = "dodge", binwidth = 1) +
+  labs(title = "Distribution of Number of Cases", x = "Number of Cases", fill = "Churned") +
+  theme_minimal()
+```
+
+### Average Case Age
+
+```{r}
+ggplot(customer_features_clean, aes(x = avg_case_age, fill = as.factor(churned))) +
+  geom_histogram(position = "dodge", binwidth = 1) +
+  labs(title = "Distribution of Average Case Age", x = "Average Case Age (Days)", fill = "Churned") +
+  theme_minimal()
+```
+:::
+
+---
+
+## Results {.center}
+
+---
+
+### Logistic Regression Models: Developed models to assess the impact of customer features on churn.
+
+::: panel-tabset
+
+Without Interaction Terms
+
+```{r}
+# Function to create a summary table
+model_summary_table <- function(model) {
+  summary_model <- summary(model)
+  coefs <- summary_model$coefficients
+  coefs_table <- as.data.frame(coefs) |>
+    rownames_to_column(var = "Variable") |>
+    kable("html", caption = "Logistic Regression Model Summary") |>
+    kable_styling("striped", full_width = FALSE)
+  
+  return(coefs_table)
+}
+
+```
+
+
+```{r}
+summary(log_model)
+
+```
+
+With interaction terms
+
+```{r}
+summary(int_model)
+
+```
+:::
+---
+
+## Recommendations and Limitations {.center}
+
+---
+### Future Directions
+::: {.incremental}
+- **Proactive Engagement**: Reach out to customers with a high number of cases or long resolution times.
+- **Monitoring Escalations**: Develop protocols for cases marked as escalated, ensuring timely follow-up.
+- **Data Completeness**: Data extracted from CRM incomplete, require further key variables.
+- **Short Time Frame**: Analysis is based on a limited period; longer-term trends could differ.
+:::
+---
+
+## Q/A {.center}
+
