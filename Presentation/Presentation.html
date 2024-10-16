@@ -320,6 +320,10 @@
       margin-right: 0; 
     }
   </style>
+  <script src="Presentation_files/libs/kePrint-0.0.1/kePrint.js"></script>
+
+  <link href="Presentation_files/libs/lightable-0.0.1/lightable.css" rel="stylesheet">
+
 </head>
 <body class="quarto-light">
   <div class="reveal">
@@ -337,31 +341,37 @@ Bilal Raja
 </div>
 
 </section>
-<section id="introduction" class="slide level2 center">
-<h2>Introduction</h2>
-</section>
-<section class="slide level2">
+<section>
+<section id="introduction" class="title-slide slide level1 center">
+<h1>Introduction</h1>
 
+</section>
+<section id="background" class="slide level2">
+<h2>Background</h2>
 <div>
-<h3 id="background">Background</h3>
 <ul>
 <li class="fragment"><strong>Company Overview</strong>: Waterman Workspaces provides co-sharing workspaces aimed at fostering collaboration and flexibility.</li>
 <li class="fragment"><strong>Objective</strong>: Analyze whether the number of CRM cases and their characteristics lead to customer churn.</li>
 </ul>
-<h3 id="why-this-analysis-matters">Why This Analysis Matters</h3>
+</div>
+</section>
+<section id="why-this-analysis-matters" class="slide level2">
+<h2>Why This Analysis Matters</h2>
+<div>
 <ul>
 <li class="fragment"><strong>Customer Retention</strong>: Retaining customers is more cost-effective than acquiring new ones.</li>
 <li class="fragment"><strong>Data-Driven Decisions</strong>: Understanding factors leading to churn can help in crafting targeted retention strategies.</li>
 </ul>
 </div>
-</section>
-<section id="methodology" class="slide level2 center">
-<h2>Methodology</h2>
-</section>
-<section class="slide level2">
+</section></section>
+<section>
+<section id="methodology" class="title-slide slide level1 center">
+<h1>Methodology</h1>
 
+</section>
+<section id="data-preparation" class="slide level2">
+<h2>Data Preparation</h2>
 <div>
-<h3 id="data-preparation">Data Preparation</h3>
 <ul>
 <li class="fragment"><strong>Data Sources</strong>:
 <ul>
@@ -370,19 +380,24 @@ Bilal Raja
 </ul></li>
 <li class="fragment"><strong>Data Cleaning</strong>: Filtered out irrelevant cases and ensured consistency in key variables.</li>
 </ul>
-<h3 id="key-variables">Key Variables</h3>
+</div>
+</section>
+<section id="key-variables" class="slide level2">
+<h2>Key Variables</h2>
+<div>
 <ul>
 <li class="fragment"><strong>Churn Statuses</strong>: Defined churn based on specific inactive statuses (e.g., “Inactive - Customer Cancelled”).</li>
 <li class="fragment"><strong>Customer Features</strong>: Created metrics such as the number of cases, average case age, and escalation status.</li>
 </ul>
 </div>
-</section>
-<section id="exploratory-data-analysis-eda" class="slide level2 center">
-<h2>Exploratory Data Analysis (EDA)</h2>
-</section>
-<section class="slide level2">
+</section></section>
+<section>
+<section id="exploratory-data-analysis-eda" class="title-slide slide level1 center">
+<h1>Exploratory Data Analysis (EDA)</h1>
 
-<h3 id="distribution-of-cases">Distribution of Cases</h3>
+</section>
+<section id="distribution-of-cases" class="slide level2">
+<h2>Distribution of Cases</h2>
 <p>Understanding the distribution of cases by their number and average resolution age.</p>
 <div class="panel-tabset">
 <ul id="tabset-1" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-1-1">Number of Cases</a></li><li><a href="#tabset-1-2">Average Case Age</a></li></ul>
@@ -411,98 +426,274 @@ Bilal Raja
 </div>
 </div>
 </div>
-</section>
-<section id="results" class="slide level2 center">
-<h2>Results</h2>
-</section>
-<section class="slide level2">
+</section></section>
+<section>
+<section id="results" class="title-slide slide level1 center">
+<h1>Results</h1>
 
-<h3 id="logistic-regression-models-developed-models-to-assess-the-impact-of-customer-features-on-churn.">Logistic Regression Models: Developed models to assess the impact of customer features on churn.</h3>
+</section>
+<section id="logistic-regression-models-developed-models-to-assess-the-impact-of-customer-features-on-churn." class="slide level2">
+<h2>Logistic Regression Models: Developed models to assess the impact of customer features on churn.</h2>
 <div class="panel-tabset">
 <ul id="tabset-2" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-2-1">Without Interaction Terms</a></li><li><a href="#tabset-2-2">With Interaction Terms</a></li></ul>
 <div class="tab-content">
 <div id="tabset-2-1">
 <div class="cell" data-layout-align="center">
-<div class="cell-output cell-output-stdout">
-<pre><code>
-Call:
-glm(formula = churned ~ num_cases + avg_case_age + is_escalated + 
-    site, family = binomial, data = customer_features_clean)
+<div class="cell-output-display">
+<table class="table table-striped caption-top" data-quarto-postprocess="true" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<caption>Logistic Regression Model Summary</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th">Variable</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">Estimate</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">Std. Error</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">z value</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">Pr(&gt;|z|)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">-18.3672837</td>
+<td style="text-align: right;">494.4963895</td>
+<td style="text-align: right;">-0.0371434</td>
+<td style="text-align: right;">0.9703707</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">num_cases</td>
+<td style="text-align: right;">0.0373025</td>
+<td style="text-align: right;">0.0502106</td>
+<td style="text-align: right;">0.7429221</td>
+<td style="text-align: right;">0.4575288</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">avg_case_age</td>
+<td style="text-align: right;">0.0017077</td>
+<td style="text-align: right;">0.0037729</td>
+<td style="text-align: right;">0.4526154</td>
+<td style="text-align: right;">0.6508257</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">is_escalated</td>
+<td style="text-align: right;">4.6090175</td>
+<td style="text-align: right;">0.6647023</td>
+<td style="text-align: right;">6.9339570</td>
+<td style="text-align: right;">0.0000000</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteBundoora</td>
+<td style="text-align: right;">19.6663026</td>
+<td style="text-align: right;">494.4967598</td>
+<td style="text-align: right;">0.0397703</td>
+<td style="text-align: right;">0.9682762</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteCamberwell</td>
+<td style="text-align: right;">19.4786465</td>
+<td style="text-align: right;">494.4967725</td>
+<td style="text-align: right;">0.0393908</td>
+<td style="text-align: right;">0.9685788</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteCaribbean Park</td>
+<td style="text-align: right;">17.2833564</td>
+<td style="text-align: right;">494.4963574</td>
+<td style="text-align: right;">0.0349514</td>
+<td style="text-align: right;">0.9721185</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteCasey Corporate Centre</td>
+<td style="text-align: right;">1.5933548</td>
+<td style="text-align: right;">1767.3228457</td>
+<td style="text-align: right;">0.0009016</td>
+<td style="text-align: right;">0.9992807</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteChadstone</td>
+<td style="text-align: right;">16.7089501</td>
+<td style="text-align: right;">494.4963497</td>
+<td style="text-align: right;">0.0337898</td>
+<td style="text-align: right;">0.9730447</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteEastland</td>
+<td style="text-align: right;">18.9098464</td>
+<td style="text-align: right;">494.4964001</td>
+<td style="text-align: right;">0.0382406</td>
+<td style="text-align: right;">0.9694958</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteGENERAL ENQUIRY</td>
+<td style="text-align: right;">34.8544779</td>
+<td style="text-align: right;">2449.9676528</td>
+<td style="text-align: right;">0.0142265</td>
+<td style="text-align: right;">0.9886493</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteNarre Warren</td>
+<td style="text-align: right;">16.7564215</td>
+<td style="text-align: right;">494.4963703</td>
+<td style="text-align: right;">0.0338858</td>
+<td style="text-align: right;">0.9729682</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteRichmond</td>
+<td style="text-align: right;">17.5382882</td>
+<td style="text-align: right;">494.4967099</td>
+<td style="text-align: right;">0.0354669</td>
+<td style="text-align: right;">0.9717074</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteSixty Four on Victor</td>
+<td style="text-align: right;">13.8359929</td>
+<td style="text-align: right;">494.4968420</td>
+<td style="text-align: right;">0.0279799</td>
+<td style="text-align: right;">0.9776781</td>
+</tr>
+</tbody>
+</table>
 
-Coefficients:
-                             Estimate Std. Error z value Pr(&gt;|z|)    
-(Intercept)                -1.837e+01  4.945e+02  -0.037    0.970    
-num_cases                   3.730e-02  5.021e-02   0.743    0.458    
-avg_case_age                1.708e-03  3.773e-03   0.453    0.651    
-is_escalated                4.609e+00  6.647e-01   6.934 4.09e-12 ***
-siteBundoora                1.967e+01  4.945e+02   0.040    0.968    
-siteCamberwell              1.948e+01  4.945e+02   0.039    0.969    
-siteCaribbean Park          1.728e+01  4.945e+02   0.035    0.972    
-siteCasey Corporate Centre  1.593e+00  1.767e+03   0.001    0.999    
-siteChadstone               1.671e+01  4.945e+02   0.034    0.973    
-siteEastland                1.891e+01  4.945e+02   0.038    0.969    
-siteGENERAL ENQUIRY         3.485e+01  2.450e+03   0.014    0.989    
-siteNarre Warren            1.676e+01  4.945e+02   0.034    0.973    
-siteRichmond                1.754e+01  4.945e+02   0.035    0.972    
-siteSixty Four on Victor    1.384e+01  4.945e+02   0.028    0.978    
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-(Dispersion parameter for binomial family taken to be 1)
-
-    Null deviance: 1169.46  on 913  degrees of freedom
-Residual deviance:  793.44  on 900  degrees of freedom
-  (76 observations deleted due to missingness)
-AIC: 821.44
-
-Number of Fisher Scoring iterations: 15</code></pre>
 </div>
 </div>
 </div>
 <div id="tabset-2-2">
 <div class="cell" data-layout-align="center">
-<div class="cell-output cell-output-stdout">
-<pre><code>
-Call:
-glm(formula = churned ~ num_cases + avg_case_age + is_escalated + 
-    site + num_cases_escalated + case_age_escalated, family = binomial, 
-    data = customer_features_clean)
+<div class="cell-output-display">
+<table class="table table-striped caption-top" data-quarto-postprocess="true" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<caption>Logistic Regression Model Summary</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;" data-quarto-table-cell-role="th">Variable</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">Estimate</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">Std. Error</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">z value</th>
+<th style="text-align: right;" data-quarto-table-cell-role="th">Pr(&gt;|z|)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">(Intercept)</td>
+<td style="text-align: right;">-18.0159888</td>
+<td style="text-align: right;">505.6568645</td>
+<td style="text-align: right;">-0.0356289</td>
+<td style="text-align: right;">0.9715783</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">num_cases</td>
+<td style="text-align: right;">0.0397793</td>
+<td style="text-align: right;">0.0506217</td>
+<td style="text-align: right;">0.7858148</td>
+<td style="text-align: right;">0.4319760</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">avg_case_age</td>
+<td style="text-align: right;">0.0016232</td>
+<td style="text-align: right;">0.0037898</td>
+<td style="text-align: right;">0.4283064</td>
+<td style="text-align: right;">0.6684281</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">is_escalated</td>
+<td style="text-align: right;">4.7751206</td>
+<td style="text-align: right;">1.1924383</td>
+<td style="text-align: right;">4.0045011</td>
+<td style="text-align: right;">0.0000621</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteBundoora</td>
+<td style="text-align: right;">19.3139926</td>
+<td style="text-align: right;">505.6572355</td>
+<td style="text-align: right;">0.0381958</td>
+<td style="text-align: right;">0.9695316</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteCamberwell</td>
+<td style="text-align: right;">19.1234217</td>
+<td style="text-align: right;">505.6572606</td>
+<td style="text-align: right;">0.0378189</td>
+<td style="text-align: right;">0.9698320</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteCaribbean Park</td>
+<td style="text-align: right;">16.9283456</td>
+<td style="text-align: right;">505.6568545</td>
+<td style="text-align: right;">0.0334779</td>
+<td style="text-align: right;">0.9732935</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteCasey Corporate Centre</td>
+<td style="text-align: right;">1.2307322</td>
+<td style="text-align: right;">1770.4781943</td>
+<td style="text-align: right;">0.0006951</td>
+<td style="text-align: right;">0.9994454</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteChadstone</td>
+<td style="text-align: right;">16.3502634</td>
+<td style="text-align: right;">505.6568575</td>
+<td style="text-align: right;">0.0323347</td>
+<td style="text-align: right;">0.9742051</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteEastland</td>
+<td style="text-align: right;">18.5566122</td>
+<td style="text-align: right;">505.6568879</td>
+<td style="text-align: right;">0.0366980</td>
+<td style="text-align: right;">0.9707258</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteGENERAL ENQUIRY</td>
+<td style="text-align: right;">34.4984406</td>
+<td style="text-align: right;">2452.2446255</td>
+<td style="text-align: right;">0.0140681</td>
+<td style="text-align: right;">0.9887756</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteNarre Warren</td>
+<td style="text-align: right;">16.4063777</td>
+<td style="text-align: right;">505.6568562</td>
+<td style="text-align: right;">0.0324457</td>
+<td style="text-align: right;">0.9741166</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">siteRichmond</td>
+<td style="text-align: right;">17.2012605</td>
+<td style="text-align: right;">505.6571295</td>
+<td style="text-align: right;">0.0340176</td>
+<td style="text-align: right;">0.9728631</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">siteSixty Four on Victor</td>
+<td style="text-align: right;">13.4406124</td>
+<td style="text-align: right;">505.6575293</td>
+<td style="text-align: right;">0.0265805</td>
+<td style="text-align: right;">0.9787944</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">num_cases_escalated</td>
+<td style="text-align: right;">-0.1464589</td>
+<td style="text-align: right;">0.3348439</td>
+<td style="text-align: right;">-0.4373944</td>
+<td style="text-align: right;">0.6618253</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">case_age_escalated</td>
+<td style="text-align: right;">0.0225812</td>
+<td style="text-align: right;">0.0592544</td>
+<td style="text-align: right;">0.3810884</td>
+<td style="text-align: right;">0.7031377</td>
+</tr>
+</tbody>
+</table>
 
-Coefficients:
-                             Estimate Std. Error z value Pr(&gt;|z|)    
-(Intercept)                -1.802e+01  5.057e+02  -0.036    0.972    
-num_cases                   3.978e-02  5.062e-02   0.786    0.432    
-avg_case_age                1.623e-03  3.790e-03   0.428    0.668    
-is_escalated                4.775e+00  1.192e+00   4.005 6.21e-05 ***
-siteBundoora                1.931e+01  5.057e+02   0.038    0.970    
-siteCamberwell              1.912e+01  5.057e+02   0.038    0.970    
-siteCaribbean Park          1.693e+01  5.057e+02   0.033    0.973    
-siteCasey Corporate Centre  1.231e+00  1.770e+03   0.001    0.999    
-siteChadstone               1.635e+01  5.057e+02   0.032    0.974    
-siteEastland                1.856e+01  5.057e+02   0.037    0.971    
-siteGENERAL ENQUIRY         3.450e+01  2.452e+03   0.014    0.989    
-siteNarre Warren            1.641e+01  5.057e+02   0.032    0.974    
-siteRichmond                1.720e+01  5.057e+02   0.034    0.973    
-siteSixty Four on Victor    1.344e+01  5.057e+02   0.027    0.979    
-num_cases_escalated        -1.465e-01  3.348e-01  -0.437    0.662    
-case_age_escalated          2.258e-02  5.925e-02   0.381    0.703    
----
-Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
-(Dispersion parameter for binomial family taken to be 1)
-
-    Null deviance: 1169.46  on 913  degrees of freedom
-Residual deviance:  793.14  on 898  degrees of freedom
-  (76 observations deleted due to missingness)
-AIC: 825.14
-
-Number of Fisher Scoring iterations: 15</code></pre>
 </div>
 </div>
 </div>
 </div>
 </div>
-</section>
+</section></section>
 <section>
 <section id="recommendations-and-limitations" class="title-slide slide level1 center">
 <h1>Recommendations and Limitations</h1>
@@ -518,15 +709,15 @@ Number of Fisher Scoring iterations: 15</code></pre>
 <li class="fragment"><strong>Short Time Frame</strong>: Analysis is based on a limited period; longer-term trends could differ.</li>
 </ul>
 </div>
-</section>
-<section id="qa" class="slide level2 center">
-<h2>Q/A</h2>
+</section></section>
+<section id="qa" class="title-slide slide level1 center">
+<h1>Q/A</h1>
 <div class="quarto-auto-generated-content">
 <div class="footer footer-default">
 
 </div>
 </div>
-</section></section>
+</section>
     </div>
   </div>
 

@@ -135,53 +135,53 @@ int_model <- glm(churned ~ num_cases + avg_case_age + is_escalated + site + num_
 
 ```
 
-## Introduction {.center}
+# Introduction {.center}
 
-------------------------------------------------------------------------
+## Background
 
 ::: {.incremental}
-### Background
-
--   **Company Overview**: Waterman Workspaces provides co-sharing workspaces aimed at fostering collaboration and flexibility.
--   **Objective**: Analyze whether the number of CRM cases and their characteristics lead to customer churn.
-
-### Why This Analysis Matters
-
--   **Customer Retention**: Retaining customers is more cost-effective than acquiring new ones.
--   **Data-Driven Decisions**: Understanding factors leading to churn can help in crafting targeted retention strategies.
+- **Company Overview**: Waterman Workspaces provides co-sharing workspaces aimed at fostering collaboration and flexibility.
+- **Objective**: Analyze whether the number of CRM cases and their characteristics lead to customer churn.
 :::
-------------------------------------------------------------------------
 
-## Methodology {.center}
-
-------------------------------------------------------------------------
+## Why This Analysis Matters
 
 ::: {.incremental}
-### Data Preparation
+- **Customer Retention**: Retaining customers is more cost-effective than acquiring new ones.
+- **Data-Driven Decisions**: Understanding factors leading to churn can help in crafting targeted retention strategies.
+:::
+
+
+
+# Methodology {.center}
+
+## Data Preparation
+
+::: {.incremental}
 
 -   **Data Sources**:
     -   CRM cases from Waterman Workspaces.
     -   Membership information for account analysis.
 -   **Data Cleaning**: Filtered out irrelevant cases and ensured consistency in key variables.
 
-### Key Variables
+:::
+
+## Key Variables
+
+::: {.incremental}
 
 -   **Churn Statuses**: Defined churn based on specific inactive statuses (e.g., "Inactive - Customer Cancelled").
 -   **Customer Features**: Created metrics such as the number of cases, average case age, and escalation status.
 :::
 
-------------------------------------------------------------------------
+# Exploratory Data Analysis (EDA) {.center}
 
-## Exploratory Data Analysis (EDA) {.center}
-
-------------------------------------------------------------------------
-
-### Distribution of Cases
+## Distribution of Cases
 
 Understanding the distribution of cases by their number and average resolution age.
 
 ::: panel-tabset
-### Number of Cases
+## Number of Cases
 
 ```{r}
 ggplot(customer_features_clean, aes(x = num_cases, fill = as.factor(churned))) +
@@ -190,7 +190,7 @@ ggplot(customer_features_clean, aes(x = num_cases, fill = as.factor(churned))) +
   theme_minimal()
 ```
 
-### Average Case Age
+## Average Case Age
 
 ```{r}
 ggplot(customer_features_clean, aes(x = avg_case_age, fill = as.factor(churned))) +
@@ -200,17 +200,14 @@ ggplot(customer_features_clean, aes(x = avg_case_age, fill = as.factor(churned))
 ```
 :::
 
----
+# Results {.center}
 
-## Results {.center}
 
----
-
-### Logistic Regression Models: Developed models to assess the impact of customer features on churn.
+## Logistic Regression Models: Developed models to assess the impact of customer features on churn.
 
 ::: {.panel-tabset}
 
-## Without Interaction Terms
+### Without Interaction Terms
 
 ```{r}
 # Function to create a summary table
@@ -229,14 +226,14 @@ model_summary_table <- function(model) {
 
 
 ```{r}
-summary(log_model)
+model_summary_table(log_model)
 
 ```
 
-## With Interaction Terms
+### With Interaction Terms
 
 ```{r}
-summary(int_model)
+model_summary_table(int_model)
 
 ```
 
@@ -252,7 +249,5 @@ summary(int_model)
 - **Short Time Frame**: Analysis is based on a limited period; longer-term trends could differ.
 :::
 
----
-
-## Q/A {.center}
+# Q/A {.center}
 
