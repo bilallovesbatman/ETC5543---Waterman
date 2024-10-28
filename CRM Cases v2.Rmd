@@ -1,19 +1,20 @@
 ---
-title: "CRM Cases V2"
+title: "Waterman Workspaces Customer Churn Analysis: Impact of CRM Cases"
 author: "Bilal Raja"
 date: "2024-10-02"
-output: html_document
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 ```
 
 ```{r}
 library(tidyverse)
 library(readxl)
 library(visdat)
-library(broom)
+library(kableExtra)
+library(bookdown)
 ```
 
 ```{r, warning=FALSE}
@@ -22,14 +23,61 @@ memberships <- read_xlsx("data/All Products 2023 to now.xlsx")
 
 ```
 
-```{r}
-vis_dat(wmcases)
-vis_miss(wmcases)
+## Abstract
 
-vis_dat(memberships)
-vis_miss(memberships)
+This report discusses the customer churn analysis for Waterman Workspaces by using the customers' membership data, together with the data from the Customer Relationship Management (CRM) system to derive insights for investigating the factors that may potentially influence the customers' churn behaviour. Factors such as case escalations, frequency of cases, and time taken to resolve a case were investigated using logistic regression modelling. The purpose of our analysis is to use the findings to guide retention strategies and improve services of the organization.
 
+## Background and Motivation
+
+Waterman Workspaces uses a membership subscription model to run their business which are defined as their 'products'. Some examples of the products include casual hire, team membership, part time membership, and suite among others. Due to an intense market competition in the domain, the organization found it pertinent to investigate customer retention on a precautionary basis in order to uncover an aspect of their business' health. Two of the most crucial areas were analyzing the customers' attendances and foot traffic and case analysis using the data from the CRM. The area to investigate was the CRM for me where the analysis focused on whether the case patterns - that include the number of cases and their resolution time - and their escalation statuses affect the likelihood of churn.
+
+Through the CRM system, Waterman Workspaces keeps a record of the numerous interactions that take place with their customers. However, given the data, it is unclear how the information from the data source correlate with churn. Thus, it is pertinent to investigate the dynamics between the service quality provided by the organization and churn in order to formulate actionable insights and enhance customer satisfaction.
+
+## Objectives and Significance
+
+The objectives and significance of the report include:
+
+- Identifying the key drivers for churn: Assess the variables that influence that lead to customers churning. The variables investigated in the report include the number of cases, their resolution time, case escalations, and whether different sites of Waterman Workspaces have greater churns. Accurate analysis gives birth to formulating targeted strategies.
+
+- Modelling and quantifying the impact: Determining how the potential drivers affect churn likelihood via logistic regression modeling.
+
+- Develop actionable insights for long-term success: Provide data-driven recommendations to the organization that are concise and understood with ease for the business for retention strategies. Fostering informed decision-making leads to enhanced overall business performance.
+
+
+## Methodology
+
+The data was provided the host organization in the form of 2 primary datasets; CRM Cases data (`wmcases`) and membership data (`memberships`). 
+
+The CRM Cases data output is seen below where we can see the variables that come along with it followed by the variables in the memberships data.
+
+```{r var-table-cases, echo=FALSE, }
+# Extract column names
+variable_list <- as.data.frame(matrix(names(wmcases), ncol = 2, byrow = TRUE))
+
+# Add column headers
+colnames(variable_list) <- c("Variables", "Variables")
+
+# Display the variables in a two-column table
+
+kable(variable_list, 
+      caption = "List of Variables in the `wmcases` Dataset", 
+      align = "l")
 ```
+
+```{r var-table-member, echo=FALSE}
+# Extract column names
+variable_list2 <- as.data.frame(matrix(names(memberships), ncol = 2, byrow = TRUE))
+
+# Add column headers
+colnames(variable_list2) <- c("Variables", "Variables")
+
+# Display the variables in a two-column table
+kable(variable_list2, 
+      caption = "List of Variables in the `memberships` Dataset", 
+      align = "l")
+```
+
+Upon consultation with the relevant personnel in the organization, the variables and observations that were not needed were removed from our analysis. Moreover, since the key variable was the *Account Number* of the customers, due diligence was made to ensure blanks and non-customer observations were removed as well. When the irrelevant observations and variables were removed, the 2 datasets were joined using a left join by using the `Account Number` as the key variable. The left join was essential as it retained all records of the CRM data and the matching records of the memberships data so that every case lodged in the CRM system was included in the analysis even if some memberships data for customers was missing. In theory, this approach factors in customers that may have recently joined in or left already.
 
 ```{r}
 cases_clean <- wmcases |>
@@ -57,6 +105,9 @@ cases_joined <- left_join(cases_clean, member_clean, by = "Account Number")
 
 ```
 
+The merged data produced a large dataset with an increasing number of variables that needed to be cleaned further. As before, potential `NA` values were catered for and further nonessential variables and observations were removed. The resulting dataset had the following useful variables for our analysis:
+
+
 ```{r}
 cases_joined <- cases_joined |>
   select(`Account Number`, `Customer`, `Case Number`, `Case Title`, `Case Age`, `Case Age (Days)`, 
@@ -72,6 +123,22 @@ cases_joined <- cases_joined |>
 ```
 
 ```{r}
+# Extract column names and format them into two columns
+variable_list3 <- as.data.frame(matrix(names(cases_joined), ncol = 2, byrow = TRUE))
+
+# Add column headers
+colnames(variable_list3) <- c("Variables", "Variables")
+
+# Display the table with a caption
+library(knitr)
+kable(variable_list3, 
+      caption = "Variables in the `cases_joined` Dataset", 
+      align = "l")
+```
+
+
+
+```{r}
 churn_statuses <- c("Inactive - Customer Cancelled", "Off-boarding", "Inactive")
 
 cases_filtered <- cases_joined |>
@@ -84,8 +151,6 @@ cases_filtered <- cases_joined |>
 cases_count <- cases_filtered |>
   group_by(`Account Number`) |>
   summarise(num_cases = n())
-
-cases_count
 ```
 
 ```{r}
@@ -93,7 +158,6 @@ avg_case_age <- cases_filtered |>
   group_by(`Account Number`) |>
   summarise(avg_case_age = median(`Case Age (Days)`, na.rm = TRUE))
 
-avg_case_age
 ```
 
 
