@@ -105,8 +105,7 @@ cases_joined <- left_join(cases_clean, member_clean, by = "Account Number")
 
 ```
 
-The merged data produced a large dataset with an increasing number of variables that needed to be cleaned further. As before, potential `NA` values were catered for and further nonessential variables and observations were removed. The resulting dataset had the following useful variables for our analysis:
-
+The merged data produced a large dataset with an increasing number of variables that needed to be cleaned further. As before, potential `NA` values were catered for and further nonessential variables and observations were removed. The resulting dataset had the following variables:
 
 ```{r}
 cases_joined <- cases_joined |>
@@ -136,7 +135,15 @@ kable(variable_list3,
       align = "l")
 ```
 
+Next, a vector was created to define churn statuses that includes
 
+- Inactive - Customer Cancelled
+- Off-boarding
+- Inactive
+
+The mentioned attributes were selected upon consultations and discussions with the supervisor.
+
+Using the defined churn statuses, the joined dataset was further filtered to include only the churned customers and a binary variable `Is Escalated` is created to provide numeric representation to of case escalation. Here, when a case is marked "Yes", the final value is converted to `1` and `0` otherwise.
 
 ```{r}
 churn_statuses <- c("Inactive - Customer Cancelled", "Off-boarding", "Inactive")
@@ -186,6 +193,13 @@ customer_features <- customer_features |>
   )
 
 ```
+
+```{r}
+vis_dat(customer_features)
+
+vis_miss(customer_features)
+```
+
 
 ```{r}
 ggplot(customer_features, aes(x = num_cases, fill = as.factor(churned))) +
