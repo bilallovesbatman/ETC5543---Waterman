@@ -21,6 +21,8 @@ library(knitr)
 library(bookdown)
 library(patchwork)
 library(gridExtra)
+library(caret)
+library(pROC)
 ```
 
 ```{r, warning=FALSE}
@@ -411,32 +413,100 @@ Moreover, the interpretability of logistic regression is fairly easier as it ind
 The logistic regression model can be expressed as:
 
 $$
-\log\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 \text{num_cases} + \beta_2 \text{case_age} + \beta_3 \text{is_escalated} + \beta_4 \text{site}
+\log\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 \text{num\_cases} + \beta_2 \text{case\_age} + \beta_3 \text{is\_escalated} + \beta_4 \text{product\_category} + \beta_5 \text{site}
 $$
 
 Where:
 - $p$ is the probability of customer churn.
 - $\beta_0$ is the intercept.
-- $\beta_1, \beta_2, \beta_3, \beta_4$ 
-are the coefficients for the predictors: number of cases, case age, escalation status, product category, and site, respectively.
-
-### Probability Interpretation
+- $\beta_1, \beta_2, \beta_3, \beta_4$ are the coefficients for the predictors: number of cases, case age, escalation status, and site, respectively.
 
 Once the log-odds are calculated, they are converted to a probability using the following equation:
 
 $$
-p = \frac{e^{\beta_0 + \beta_1 \text{num_cases} + \beta_2 \text{case_age} + \beta_3 \text{is_escalated} + \beta_4 \text{site}}{1 + e^{\beta_0 + \beta_1 \text{num_cases} + \beta_2 \text{case_age} + \beta_3 \text{is_escalated} + \beta_4 \text{site}}
+p = \frac{e^{\beta_0 + \beta_1 \text{num\_cases} + \beta_2 \text{case\_age} + \beta_3 \text{is\_escalated} + \beta_4 \text{site}}}{1 + e^{\beta_0 + \beta_1 \text{num\_cases} + \beta_2 \text{case\_age} + \beta_3 \text{is\_escalated} + \beta_4 \text{site}}}
 $$
+
 
 This equation produces the log-odds output between 0 and 1, which represents the probability of the customer churning.
 
+### Fitting the model
+
+```{r}
+# Create interaction terms
+customer_features_clean <- customer_features_clean |>
+  mutate(
+    num_cases_escalated = num_cases * is_escalated,
+    case_age_escalated = case_age * is_escalated,
+    site_escalated = interaction(site, is_escalated)
+  )
+
+```
+
+```{r}
+# For reproducibility
+set.seed(125)
+
+train_indices <- createDataPartition(customer_features_clean$churned, p = 0.7, list = FALSE)
+
+# Split the data
+train <- customer_features_clean[train_indices, ]
+test <- customer_features_clean[-train_indices, ]
+
+```
 
 
 ```{r}
-log_model <- glm(churned ~ num_cases + case_age + is_escalated + site, data = customer_features_clean, family = binomial)
+log_model <- glm(churned ~ num_cases + case_age + is_escalated + site + num_cases_escalated + case_age_escalated, data = train, family = binomial)
 summary(log_model)
 
 ```
+
+Since `site` is not a significant predcitor in our case and is complex to handle, we decide to remove it.
+
+```{r}
+log_model_no_site <- glm(churned ~ num_cases + case_age + is_escalated + num_cases_escalated + case_age_escalated, 
+                          data = train, family = binomial)
+summary(log_model_no_site)
+
+```
+
+
+```{r}
+pscl::pR2(log_model_no_site)["McFadden"]
+```
+
+```{r}
+varImp(log_model_no_site)
+```
+
+```{r}
+car::vif(log_model_no_site)
+```
+
+### Model Diagnostics
+
+```{r}
+predicted_no_site <- predict(log_model_no_site, test, type = "response")
+predicted_churned_no_site <- ifelse(predicted_no_site > 0.5, 1, 0)
+predicted_churned_no_site <- factor(predicted_churned_no_site, levels = c("0", "1"))
+
+```
+
+```{r}
+confusionMatrix(predicted_churned_no_site,
+                as.factor(test$churned))
+```
+
+```{r}
+roc_curve <- roc(test$churned, predicted_no_site)
+
+plot(roc_curve, main = "ROC Curve", col = "blue", lwd = 2)
+
+auc_value <- auc(roc_curve)
+legend("bottomright", legend = paste("AUC =", round(auc_value, 3)), box.lwd = 0, col = "blue", lwd = 2)
+```
+
 
 ```{r}
 # Create interaction terms
