@@ -2,7 +2,7 @@
 title: "Waterman Workspaces Customer Churn Analysis: Impact of CRM Cases"
 author: "Bilal Raja"
 date: "2024-10-02"
-output: pdf_document
+output: bookdown::pdf_document2
 ---
 
 ```{r setup, include=FALSE}
@@ -15,6 +15,7 @@ library(readxl)
 library(visdat)
 library(kableExtra)
 library(bookdown)
+library(patchwork)
 ```
 
 ```{r, warning=FALSE}
@@ -143,7 +144,7 @@ Next, a vector was created to define churn statuses that includes
 
 The mentioned attributes were selected upon consultations and discussions with the supervisor.
 
-Using the defined churn statuses, the joined dataset was further filtered to include only the churned customers and a binary variable `Is Escalated` is created to provide numeric representation to of case escalation. Here, when a case is marked "Yes", the final value is converted to `1` and `0` otherwise.
+Using the defined churn statuses, a new subset of the data was formed, namely `customer_features`. The cases were grouped by their account numbers and summarized to count the number of cases per account and a similar process was followed to summarize by the average case age as well to provide insights into a the typical duration of cases for each customer. In addition, the median was taken for the case ages over a mean to handle the skewness of the data. In such scenarios, mean is sensitive to extreme data points which could provide an untrue picture of the time it takes to resolve a case. On the other hand, the median takes the ***50th percentile*** (the central point). Moreover, `churned` was created as a binary variable. The logic behind making it binary was that either a customer churns or does not churn and this case, `1` meant churned and `0` meant not churned. Additionally, `product_category` was created which retained the first product associated with the account to reflect the main product used by the customer. The initial reasoning behind including the product categories was to analyze whether different categories had varying churn rates. A similar approach was taken to incorporate the `site` variable to subset to investigate a sites of the organizations have varying churn rates that could point towards service quality issues. The joined dataset was further filtered to include another binary variable `Is Escalated` that was created to provide numeric representation to of case escalation. Here, when a case is marked "Yes", the final value is converted to `1` and `0` otherwise. Finally, steps were taken to ensure that the `product_category` and `site` variables were converted to factor.
 
 ```{r}
 churn_statuses <- c("Inactive - Customer Cancelled", "Off-boarding", "Inactive")
@@ -152,25 +153,6 @@ cases_filtered <- cases_joined |>
   filter(`Status Reason.y` %in% churn_statuses | is.na(`Status Reason.y`)) |>
   mutate(`Is Escalated` = ifelse(`Is Escalated` == "Yes", 1, 0))
 
-```
-
-```{r}
-cases_count <- cases_filtered |>
-  group_by(`Account Number`) |>
-  summarise(num_cases = n())
-```
-
-```{r}
-avg_case_age <- cases_filtered |>
-  group_by(`Account Number`) |>
-  summarise(avg_case_age = median(`Case Age (Days)`, na.rm = TRUE))
-
-```
-
-
-```{r}
-customer_features <- cases_count |>
-  inner_join(avg_case_age, by = "Account Number")
 ```
 
 ```{r}
@@ -195,22 +177,65 @@ customer_features <- customer_features |>
 ```
 
 ```{r}
-vis_dat(customer_features)
+# Extract column names and format them into two columns
+variable_list4 <- as.data.frame(matrix(names(customer_features), ncol = 1, byrow = TRUE))
 
-vis_miss(customer_features)
+# Add column headers
+colnames(variable_list4) <- "Variables"
+
+# Display the table with a caption
+library(knitr)
+kable(variable_list4, 
+      caption = "Variables in the `customer_features` Dataset", 
+      align = "l")
 ```
 
+The final variables used for our analysis and their explanation are as follows:
 
-```{r}
-ggplot(customer_features, aes(x = num_cases, fill = as.factor(churned))) +
+- `Account Number`: A unique identifier of a customer.
+
+- `num_cases`: The total number of cases per customer.
+
+- `avg_case_age`: The median age in days taken to resolve a case.
+
+- `churned`: A binary indicator that shows whether a customer churned or did not churn.
+
+- `product_category`: The type of membership subscribed by the customer.
+
+- `site`: The site or the location of the customer of Waterman.
+
+- `is_escalated`: A binary indicator that shows whether a case raised by the customer was escalated.
+
+## Exploratory Data Analysis
+
+### Ensuring the Data is Clean and Structured
+
+```{r vis-plot, fig.cap="Comparison of dataset structure and missing values.", echo=FALSE, fig.width=8, fig.height=5}
+vp1 <- vis_dat(customer_features)
+
+vp2 <- vis_miss(customer_features)
+
+vp1 + vp2
+```
+
+While we are able to what type the variables are, \@ref(fig:vis-plot) shows that there are a significant number of missing observations in `product_category`. These missing values pose a problem when it comes to analyzing the product categories and a decision was taken to exclude the variable altogether for our analysis.
+
+### Distribution of Case Frequency and Case Age
+
+```{r outlier-plot, fig.cap= "Outlier Distributions", echo=FALSE, fig.width=8, fig.height=5}
+his1 <- ggplot(customer_features, aes(x = num_cases, fill = as.factor(churned))) +
   geom_histogram(position = "dodge", binwidth = 1) +
   labs(title = "Distribution of Number of Cases", x = "Number of Cases", fill = "Churned")
 
-ggplot(customer_features, aes(x = avg_case_age, fill = as.factor(churned))) +
+his2 <- ggplot(customer_features, aes(x = avg_case_age, fill = as.factor(churned))) +
   geom_histogram(position = "dodge", binwidth = 1) +
   labs(title = "Distribution of Average Case Age", x = "Average Case Age (Days)", fill = "Churned")
 
+his1 + his2
+
 ```
+
+\@ref(fig:outlier-plot) reveals positive
 
 ```{r}
 # Outlier detection for average case age

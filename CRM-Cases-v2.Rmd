@@ -1,0 +1,492 @@
+---
+title: "Waterman Workspaces Customer Churn Analysis: Impact of CRM Cases"
+author: "Bilal Raja"
+date: "2024-10-02"
+output:
+  bookdown::pdf_document2:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+```
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(visdat)
+library(kableExtra)
+library(knitr)
+library(bookdown)
+library(patchwork)
+library(gridExtra)
+```
+
+```{r, warning=FALSE}
+wmcases <- read_xlsx("data/CRM Cases 1-08-2024 5-17-55 PM.xlsx")
+memberships <- read_xlsx("data/All Products 2023 to now.xlsx")
+
+```
+
+# Abstract
+
+This report discusses the customer churn analysis for Waterman Workspaces by using the customers' membership data, together with the data from the Customer Relationship Management (CRM) system to derive insights for investigating the factors that may potentially influence the customers' churn behaviour. Factors such as case escalations, frequency of cases, and time taken to resolve a case were investigated using logistic regression modelling. The purpose of our analysis is to use the findings to guide retention strategies and improve services of the organization.
+
+# Background and Motivation
+
+Waterman Workspaces uses a membership subscription model to run their business which are defined as their 'products'. Some examples of the products include casual hire, team membership, part time membership, and suite among others. Due to an intense market competition in the domain, the organization found it pertinent to investigate customer retention on a precautionary basis in order to uncover an aspect of their business' health. Two of the most crucial areas were analyzing the customers' attendances and foot traffic and case analysis using the data from the CRM. The area to investigate was the CRM for me where the analysis focused on whether the case patterns - that include the number of cases and their resolution time - and their escalation statuses affect the likelihood of churn.
+
+Through the CRM system, Waterman Workspaces keeps a record of the numerous interactions that take place with their customers. However, given the data, it is unclear how the information from the data source correlate with churn. Thus, it is pertinent to investigate the dynamics between the service quality provided by the organization and churn in order to formulate actionable insights and enhance customer satisfaction.
+
+# Objectives and Significance
+
+The objectives and significance of the report include:
+
+- Identifying the key drivers for churn: Assess the variables that influence that lead to customers churning. The variables investigated in the report include the number of cases, their resolution time, case escalations, and whether different sites of Waterman Workspaces have greater churns. Accurate analysis gives birth to formulating targeted strategies.
+
+- Modelling and quantifying the impact: Determining how the potential drivers affect churn likelihood via logistic regression modeling.
+
+- Develop actionable insights for long-term success: Provide data-driven recommendations to the organization that are concise and understood with ease for the business for retention strategies. Fostering informed decision-making leads to enhanced overall business performance.
+
+
+# Methodology
+
+## Data Cleaning and Joining
+
+The data was provided the host organization in the form of 2 primary datasets; CRM Cases data (`wmcases`) and membership data (`memberships`). 
+
+The CRM Cases data output is seen below where we can see the variables that come along with it followed by the variables in the memberships data (see Tables \@ref(tab:var-table-cases) and \@ref(tab:var-table-member)).
+
+```{r var-table-cases, echo=FALSE, }
+# Extract column names
+variable_list <- as.data.frame(matrix(names(wmcases), ncol = 2, byrow = TRUE))
+
+# Add column headers
+colnames(variable_list) <- c("Variables", "Variables")
+
+# Display the variables in a two-column table
+
+kable(variable_list, 
+      caption = "List of Variables in the `wmcases` Dataset", 
+      align = "l")
+```
+
+```{r var-table-member, echo=FALSE}
+# Extract column names
+variable_list2 <- as.data.frame(matrix(names(memberships), ncol = 2, byrow = TRUE))
+
+# Add column headers
+colnames(variable_list2) <- c("Variables", "Variables")
+
+# Display the variables in a two-column table
+kable(variable_list2, 
+      caption = "List of Variables in the `memberships` Dataset", 
+      align = "l")
+```
+
+Upon consultation with the relevant personnel in the organization, the variables and observations that were not needed were removed from our analysis. Moreover, since the key variable was the *Account Number* of the customers, due diligence was made to ensure blanks and non-customer observations were removed as well. When the irrelevant observations and variables were removed, the 2 datasets were joined using a left join by using the `Account Number` as the key variable. The left join was essential as it retained all records of the CRM data and the matching records of the memberships data so that every case lodged in the CRM system was included in the analysis even if some memberships data for customers was missing. In theory, this approach factors in customers that may have recently joined in or left already.
+
+```{r}
+cases_clean <- wmcases |>
+  filter(!grepl("Product delivery", Subject, ignore.case = TRUE) &
+           !grepl("ETC waiver", Subject, ignore.case = TRUE) &
+           !grepl("Financial request", Subject, ignore.case = TRUE) &
+           !grepl("Purchase orders", Subject, ignore.case = TRUE) &
+           !grepl("Rent/Membership assistance", Subject, ignore.case = TRUE) &
+           !grepl("All retired ones", Subject, ignore.case = TRUE) &
+           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE)) |>
+  filter(!is.na(`Account Number (Customer) (Account)`)) |>
+  rename(`Account Number` = `Account Number (Customer) (Account)`) |>
+  select(-`(Do Not Modify) Case`, -`(Do Not Modify) Row Checksum`, -`(Do Not Modify) Modified On`)
+
+member_clean <- memberships |>
+  filter(!grepl("Quote Duplicate", `Status Reason`, ignore.case = TRUE)) |>
+  filter(!grepl("Casual Hire", `Accounting Code`, ignore.case = TRUE)) |>
+  filter(!is.na(`Account Number (Lessee) (Account)`)) |>
+  rename(`Account Number` = `Account Number (Lessee) (Account)`)
+
+```
+
+```{r}
+cases_joined <- left_join(cases_clean, member_clean, by = "Account Number")
+
+```
+
+## Creating the Final Data Subset
+
+The merged data produced a large dataset with an increasing number of variables that needed to be cleaned further. As before, potential `NA` values were catered for and further nonessential variables and observations were removed. The resulting dataset had the following variables listed in Table \@ref(tab:var-table-joined):
+
+```{r}
+cases_joined <- cases_joined |>
+  select(`Account Number`, `Customer`, `Case Number`, `Case Title`, `Case Age`, `Case Age (Days)`, 
+         `Is Escalated`, everything(), -Priority, -`Modified On`, -Satisfaction, -`Sentiment Value`, 
+         -`Service Level`, -SLA, -Severity, -Status.y, -`Product Name`, -Location, -`Accounting Code`, 
+         -`Status Reason.x`, -`Industry (Lessee) (Account)`, -Lessee) |>
+  mutate(
+    Site = as.factor(Site),
+    `Product Category` = as.factor(`Product Category`)) |>
+  filter(!grepl("TestPayment", `Account Number`, ignore.case = TRUE)) |>
+  filter(!grepl("Waterman Workspaces", `Customer`, ignore.case = TRUE))
+
+```
+
+```{r var-table-joined}
+# Extract column names and format them into two columns
+variable_list3 <- as.data.frame(matrix(names(cases_joined), ncol = 2, byrow = TRUE))
+
+# Add column headers
+colnames(variable_list3) <- c("Variables", "Variables")
+
+# Display the table with a caption
+kable(variable_list3, 
+      caption = "Variables in the cases joined Dataset", 
+      align = "l")
+```
+
+Next, a vector was created to define churn statuses that includes
+
+- Inactive - Customer Cancelled
+- Off-boarding
+- Inactive
+
+The mentioned attributes were selected upon consultations and discussions with the supervisor.
+
+Using the defined churn statuses, a new subset of the data was formed, namely `customer_features`. The cases were grouped by their account numbers and summarized to count the number of cases per account and a similar process was followed to summarize by the average case age as well to provide insights into a the typical duration of cases for each customer. In addition, the median was taken for the case ages over a mean to handle the skewness of the data. In such scenarios, mean is sensitive to extreme data points which could provide an untrue picture of the time it takes to resolve a case. On the other hand, the median takes the ***50th percentile*** (the central point). Moreover, `churned` was created as a binary variable. The logic behind making it binary was that either a customer churns or does not churn and this case, `1` meant churned and `0` meant not churned.
+
+Additionally, `product_category` was created which retained the first product associated with the account to reflect the main product used by the customer. The initial reasoning behind including the product categories was to analyze whether different categories had varying churn rates. A similar approach was taken to incorporate the `site` variable to subset to investigate a sites of the organizations have varying churn rates that could point towards service quality issues. The joined dataset was further filtered to include another binary variable `Is Escalated` that was created to provide numeric representation to of case escalation. Here, when a case is marked "Yes", the final value is converted to `1` and `0` otherwise. Finally, steps were taken to ensure that the `product_category` and `site` variables were converted to factor.
+
+```{r}
+churn_statuses <- c("Inactive - Customer Cancelled", "Off-boarding", "Inactive")
+
+cases_filtered <- cases_joined |>
+  filter(`Status Reason.y` %in% churn_statuses | is.na(`Status Reason.y`)) |>
+  mutate(`Is Escalated` = ifelse(`Is Escalated` == "Yes", 1, 0))
+
+```
+
+```{r}
+customer_features <- cases_filtered |>
+  group_by(`Account Number`) |>
+  summarise(
+    num_cases = n(),
+    case_age = median(`Case Age (Days)`, na.rm = TRUE),
+    churned = as.integer(any(`Status Reason.y` %in% churn_statuses)),
+    product_category = first(`Product Category`),  # Ensure logical first() use
+    site = first(`Site`),  # Assuming consistent site for account
+    is_escalated = max(`Is Escalated`, na.rm = TRUE)  # Escalation as binary
+  )
+
+# Ensure 'product_category' and 'site' remain as factors
+customer_features <- customer_features |>
+  mutate(
+    product_category = as.factor(product_category),
+    site = as.factor(site)
+  )
+
+```
+
+```{r}
+# Extract column names and format them into two columns
+variable_list4 <- as.data.frame(matrix(names(customer_features), ncol = 1, byrow = TRUE))
+
+# Add column headers
+colnames(variable_list4) <- "Variables"
+
+# Display the table with a caption
+kable(variable_list4, 
+      caption = "Variables in the customer features Dataset", 
+      align = "l")
+```
+
+The final variables used for our analysis and their explanation are as follows:
+
+- `Account Number`: A unique identifier of a customer.
+
+- `num_cases`: The total number of cases per customer.
+
+- `case_age`: The median age in days taken to resolve a case.
+
+- `churned`: A binary indicator that shows whether a customer churned or did not churn.
+
+- `product_category`: The type of membership subscribed by the customer.
+
+- `site`: The site or the location of the customer of Waterman.
+
+- `is_escalated`: A binary indicator that shows whether a case raised by the customer was escalated.
+
+## Exploratory Data Analysis
+
+### Ensuring the Data is Clean and Structured
+
+```{r vis-plot, fig.cap="Comparison of dataset structure and missing values.", echo=FALSE, fig.height=5, fig.width=10}
+vp1 <- vis_dat(customer_features)
+
+vp2 <- vis_miss(customer_features)
+
+vp1 + vp2
+```
+
+While we are able to what type the variables are, Figure \@ref(fig:vis-plot) shows that there are a significant number of missing observations in `product_category`. Due to a significantly high proportion of missing values of the product categories, the variable was not included in our analysis as the missing values would distort our analysis and provide little to no meaningful analysis.
+
+### Summary Description
+
+```{r summary-table}
+# Generate summary
+summary_stats <- customer_features |>
+  select(num_cases, case_age, churned, is_escalated, product_category, site) |>
+  summary()
+
+# Display the custom summary
+kable(summary_stats, 
+      caption = "Custom Summary for Selected Variables", 
+      align = "l", 
+      format = "latex", 
+      booktabs = TRUE) |>
+  kable_styling(latex_options = c("scale_down", "hold_position"), 
+                font_size = 8, 
+                full_width = FALSE)
+```
+
+
+Table \@ref(tab:summary-table) shows the overall summary of the subset. It illustrates that a customer raises 4.246 issues on average and it takes an average of 39 days to resolve the issue. Both `num_cases` and `case_age` have medians lower than the mean that signal positive skewness which will be visualized next. Moreover, the table provides further information on the total number of each type of product a customer has subscribed to and the  umber of customers at each site.
+
+
+### Distribution of Case Frequency and Case Age (with outliers)
+
+```{r outlier-plot, fig.cap= "Outlier Distributions", echo=FALSE, fig.height=5, fig.width=10}
+his1 <- ggplot(customer_features, aes(x = num_cases, fill = as.factor(churned))) +
+    geom_histogram(position = "dodge", binwidth = 1) +
+  labs(
+    title = "Distribution of Customers by Number of Cases",
+    x = "Number of Cases", 
+    y = "Number of Customers",
+    fill = "Customer Status"
+  ) +
+  scale_fill_manual(values = c("0" = "steelblue", "1" = "#F08080"), 
+                    labels = c("0" = "Did Not Churn", "1" = "Churned")) + 
+  theme_minimal() +
+  theme(legend.position = "right")
+
+his2 <-ggplot(customer_features, aes(x = case_age, fill = as.factor(churned))) +
+    geom_histogram(position = "dodge", binwidth = 1) +
+  labs(
+    title = "Distribution of Customers by Case Age",
+    x = "Case Age (Days)", 
+    y = "Number of Customers",
+    fill = "Customer Status"
+  ) +
+  scale_fill_manual(values = c("0" = "steelblue", "1" = "#F08080"), 
+                    labels = c("0" = "Did Not Churn", "1" = "Churned")) + 
+  theme_minimal() +
+  theme(legend.position = "right")
+
+grid.arrange(his1, his2, ncol = 2)
+
+```
+
+Figure \@ref(fig:outlier-plot) reveals high positive skewness for the number of cases and average case age. These are such extreme data points that intuition dictated to investigate further. However, it was recommended to not include extreme outliers for business purposes. Simultaneously, Figure \@ref(fig:outlier-plot) offered an insight into how the data may be managed currently by the organization, hinting at problems that need to be addressed.
+
+Since it was recommended to remove the outliers, the interquartile (IQR) method was employed for their removal in order to paint a clearer picture for our analysis. Using the interquartile method was preferred to any other method because of its robustness and by using the middle 50% of the data, our analysis is not influenced by the extreme values observed. Hence, the IQR method allows for preserving the underlying distribution of the data without any trade-off of the data integrity and models.
+
+For self reflection purposes, it was realized that using the median for the average case ages previously did not remove the outliers.
+
+```{r}
+# Outlier detection for average case age
+Q1_age <- quantile(customer_features$case_age, 0.25, na.rm = TRUE)
+Q3_age <- quantile(customer_features$case_age, 0.75, na.rm = TRUE)
+IQR_age <- Q3_age - Q1_age
+
+lower_bound_age <- Q1_age - 1.5 * IQR_age
+upper_bound_age <- Q3_age + 1.5 * IQR_age
+
+customer_features_clean <- customer_features |>
+  filter(case_age >= lower_bound_age & case_age <= upper_bound_age)
+
+# Outlier detection for number of cases
+Q1_num <- quantile(customer_features_clean$num_cases, 0.25, na.rm = TRUE)
+Q3_num <- quantile(customer_features_clean$num_cases, 0.75, na.rm = TRUE)
+IQR_num <- Q3_num - Q1_num
+
+lower_bound_num <- Q1_num - 1.5 * IQR_num
+upper_bound_num <- Q3_num + 1.5 * IQR_num
+
+customer_features_clean <- customer_features_clean |>
+  filter(num_cases >= lower_bound_num & num_cases <= upper_bound_num)
+
+```
+
+### Churn Status Comparison
+
+Before visualizing the number of cases and the case resolution times, we first review a holistic comparison of customers churning against the customers who did not churn from the final cleaned subset of the data. Figure \@ref(fig:churn-plot) below illustrates that There are `r sum(customer_features_clean$churned == 1)` customers who churned and `r sum(customer_features_clean$churned == 0)` customers who did not churn.
+
+```{r churn-plot, fig.cap= "Analyzing Customers Churning", echo=FALSE, fig.height=5, fig.width=10}
+# Count of churned vs. not churned
+churn_counts <- table(customer_features_clean$churned)
+
+churn_plot <- ggplot(as.data.frame(churn_counts), aes(x = Var1, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = c("0" = "steelblue", "1" = "#F08080"), 
+                    labels = c("0" = "Did Not Churn", "1" = "Churned")) + 
+  labs(title = "Customer Churn Count", x = "Churn Status", y = "Number of Customers", fill = "Customer Status") +
+  theme_minimal()
+
+churn_plot
+
+```
+
+### Distribution of Case Frequency and Case Age (cleaned)
+
+Next, we plot the histograms to analyze the distributions from the cleaned data.
+
+```{r}
+
+his11 <-ggplot(customer_features_clean, aes(x = num_cases, fill = as.factor(churned))) +
+    geom_histogram(position = "dodge", binwidth = 1) +
+  labs(
+    title = "Distribution of Customers by Number of Cases",
+    x = "Number of Cases", 
+    y = "Number of Customers",
+    fill = "Customer Status"
+  ) +
+  scale_fill_manual(values = c("0" = "steelblue", "1" = "#F08080"), 
+                    labels = c("0" = "Did Not Churn", "1" = "Churned")) + 
+  scale_x_continuous(breaks = seq(0, max(customer_features_clean$num_cases), by = 1)) +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+his22 <- ggplot(customer_features_clean, aes(x = case_age, fill = as.factor(churned))) +
+   geom_histogram(position = "dodge", binwidth = 1) + 
+  labs(
+    title = "Distribution of Customers by Case Age",
+    x = "Case Age (Days)", 
+    y = "Number of Customers",
+    fill = "Customer Status"
+  ) +
+  scale_fill_manual(values = c("0" = "steelblue", "1" = "#F08080"), 
+                    labels = c("0" = "Did Not Churn", "1" = "Churned")) +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
+
+```{r casenum-plot, fig.cap= "Number of Cases Distribution", echo=FALSE, fig.height=5, fig.width=10}
+his11
+```
+
+Figure \@ref(fig:casenum-plot) shows number of customers against the number of cases. The customers that churned and those who did not churn are segregated by separate colours for ease in visual comparison. 
+
+The figure suggests that the distribution of customers by their number of cases is positively skewed which means that there are more customers that faced issues less frequently. Moreover, it shows that as the number of cases increase, the number of customers churning decreases significantly. While this may seem counter-intuitive, it also shows that there decreasing number of customers that face more problems. In this case, it is more important to analyze the proportion of customers that churned versus the customers that did not churn given the number of cases. Even so, the number of customers that leave are still lower than the customers that do not leave at every bin of number of cases.
+
+```{r caseage-plot, fig.cap= "Case Age Distribution", echo=FALSE, fig.height=5, fig.width=10}
+his22
+```
+
+Figure \@ref(fig:caseage-plot) shows number of customers against the average case age. The customers that churned and those who did not churn are segregated by separate colours for ease in visual comparison.
+
+The figure suggests that the distribution of customers against the case age is also positively skewed which means that there are more customers that had cases resolved mostly sooner rather than later. Moreover, it shows that as the case resolution time increases, the number of customers churning decreases overall. This too seems counter-intuitive and also shows that there are less customers that face longer case resolution times. 
+
+### Correlation
+
+```{r cor-matrix}
+cor_matrix <- cor(
+  customer_features_clean |> 
+    select(num_cases, case_age, is_escalated, churned))
+
+kable(cor_matrix, 
+      caption = "Correlation Matrix", 
+      align = "c", 
+      format = "latex", 
+      booktabs = TRUE)
+
+```
+
+The correlation matrix in Table \@ref(tab:cor-matrix) produces some interesting points. The correlations between all variables are very weak and inconclusive apart from `is_escalated`. While it was assumed that as the number of cases and case resolution times increase, the impact on churn would increase as well. However, this positive relationship is not observed. On the other hand, cases being escalated have a positive correlation with customers churning albeit having a weak correlation of `r cor(customer_features_clean$is_escalated, customer_features_clean$churned)`
+
+## Logistic Regression Modeling
+
+For the purpose of our analysis, we applied logistic regression to model the relationships between the explanatory variables and the outcome of customers churning. According to Peng et al. (2002) generally, logistic regression is well suited for describing and testing hypotheses about relationships between a categorical outcome variable and one or more categorical or continuous predictor variables. In the simplest case of linear regression for one continuous predictor X and one dichotomous outcome variable Y, the plot of such data results in two parallel lines, each corresponding to a value of the dichotomous outcome. Thus, the binary nature of our outcomes encourage us to use logistic regression.
+
+Moreover, the interpretability of logistic regression is fairly easier as it indicates how the predictors impact the outcome (in terms of log-odds). Since we take into account the probabilistic outcome, it helps us to identify at-risk customers and develop retention strategies. While more complex models could have been possible to apply, such as decision trees, logistic model was preferred to avoid unnecessary complications and provide easy to interpret results for the business audience.
+
+The logistic regression model can be expressed as:
+
+$$
+\log\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 \text{num_cases} + \beta_2 \text{case_age} + \beta_3 \text{is_escalated} + \beta_4 \text{site}
+$$
+
+Where:
+- $p$ is the probability of customer churn.
+- $\beta_0$ is the intercept.
+- $\beta_1, \beta_2, \beta_3, \beta_4$ 
+are the coefficients for the predictors: number of cases, case age, escalation status, product category, and site, respectively.
+
+### Probability Interpretation
+
+Once the log-odds are calculated, they are converted to a probability using the following equation:
+
+$$
+p = \frac{e^{\beta_0 + \beta_1 \text{num_cases} + \beta_2 \text{case_age} + \beta_3 \text{is_escalated} + \beta_4 \text{site}}{1 + e^{\beta_0 + \beta_1 \text{num_cases} + \beta_2 \text{case_age} + \beta_3 \text{is_escalated} + \beta_4 \text{site}}
+$$
+
+This equation produces the log-odds output between 0 and 1, which represents the probability of the customer churning.
+
+
+
+```{r}
+log_model <- glm(churned ~ num_cases + case_age + is_escalated + site, data = customer_features_clean, family = binomial)
+summary(log_model)
+
+```
+
+```{r}
+# Create interaction terms
+customer_features_clean <- customer_features_clean |>
+  mutate(
+    num_cases_escalated = num_cases * is_escalated,
+    case_age_escalated = case_age * is_escalated,
+    site_escalated = interaction(site, is_escalated)
+  )
+
+```
+
+
+```{r}
+int_model <- glm(churned ~ num_cases + case_age + is_escalated + site + num_cases_escalated + case_age_escalated, data = customer_features_clean, family = binomial)
+
+summary(int_model)
+```
+
+```{r}
+# Compare models using AIC and BIC
+AIC(log_model, int_model)
+BIC(log_model, int_model)
+
+```
+
+
+```{r}
+cases_summary <- cases_joined %>%
+  filter(`Status Reason.y` %in% churn_statuses) %>%
+  group_by(`Account Number`, Customer, `Status Reason.y`) %>%
+  summarize(
+    total_cases = n(),
+    avg_case_age = mean(`Case Age (Days)`, na.rm = TRUE),
+    .groups = 'drop'
+  )
+
+# Step 2: Clean the summary
+cases_summary_clean <- cases_summary %>%
+  filter(!is.na(total_cases) & !is.na(avg_case_age))
+
+ggplot(cases_summary, aes(x = total_cases)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Number of Cases for Churned Customers", x = "Number of Cases", y = "Count of Customers")
+
+ggplot(cases_summary, aes(x = "", y = avg_case_age)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = "Case Resolution Time for Churned Customers", y = "Average Case Age (Days)") +
+  theme(axis.text.x = element_blank())
+
+```
+
+
