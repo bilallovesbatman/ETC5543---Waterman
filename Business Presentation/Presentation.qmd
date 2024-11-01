@@ -3,16 +3,23 @@ title: "Waterman Workspaces: Customer Retention Through Case Management"
 author: "Bilal Raja"
 format: 
   revealjs: 
+    theme: default
+    fontsize: 24pt
     toc: false
     slide-number: true
-    transition: slide
+    transition: fade
     fig-align: center
-    revealjs:
-      margin: 0.05
-      center: true
-      fontsize: 10pt
-      theme: sky
-      css: styles.css
+    margin: 0.1
+    slide-layout: wide
+    controls: true
+    progress: true
+    hash: true
+    scrollable: true
+    logo: images/logo.png
+    title-slide-attributes: 
+      data-background-color: "#005E5E"  # Dark green background
+      data-background-opacity: "1"
+      data-color: "white"  # White text
 editor: visual
 ---
 
@@ -30,6 +37,7 @@ library(readxl)
 library(visdat)
 library(broom)
 library(kableExtra)
+library(DT)
 
 wmcases <- read_xlsx("../data/CRM Cases 1-08-2024 5-17-55 PM.xlsx")
 memberships <- read_xlsx("../data/All Products 2023 to now.xlsx")
@@ -135,111 +143,184 @@ int_model <- glm(churned ~ num_cases + avg_case_age + is_escalated + site + num_
 
 ```
 
-# Introduction {.center}
+# Introduction {background-color="#005E5E"}
+
+## About Me
+
+::: {.incremental}
+
+- Where am I from?
+  
+  - Born and raised in Jhelum, Pakistan.
+
+- What am I studying?
+
+  - Final Year Master of Business Analytics from Monash University.
+
+  - Undergraduate from Monash Malaysia.
+    
+- I LOVE football.
+
+:::
 
 ## Background
 
 ::: {.incremental}
-- **Company Overview**: Waterman Workspaces provides co-sharing workspaces aimed at fostering collaboration and flexibility.
-- **Objective**: Analyze whether the number of CRM cases and their characteristics lead to customer churn.
+- **Analysis Overview**:  
+  Conducted a comprehensive analysis of customer CRM cases to identify trends and characteristics associated with customer churn.
+
+- **Data Collection**:  
+  Utilized CRM data to assess various features, including case frequency, average case age, escalation status, and location.
+
+- **Methodology**:  
+  Employed logistic regression modeling to evaluate the impact of these features on customer retention and churn likelihood.
 :::
 
 ## Why This Analysis Matters
 
 ::: {.incremental}
-- **Customer Retention**: Retaining customers is more cost-effective than acquiring new ones.
-- **Data-Driven Decisions**: Understanding factors leading to churn can help in crafting targeted retention strategies.
+- **Customer Retention**:  
+  Retaining existing customers is more cost-effective than acquiring new ones, making it essential to identify churn risk factors.
+
+- **Targeted Strategies**:  
+  Insights from the analysis enable the development of tailored strategies to address specific issues leading to churn.
+
+- **Data-Driven Culture**:  
+  Leveraging data fosters a culture of informed decision-making within the organization, enhancing overall business performance.
+
+- **Long-Term Success**:  
+  Understanding and mitigating churn is crucial for sustaining revenue growth and building lasting customer relationships.
 :::
 
 
 
-# Methodology {.center}
+
+# Methodology {background-color="#005E5E"}
 
 ## Data Preparation
 
 ::: {.incremental}
+- **Analysis Overview**:  
+  Prepared CRM data to identify key factors influencing customer churn.
 
--   **Data Sources**:
-    -   CRM cases from Waterman Workspaces.
-    -   Membership information for account analysis.
--   **Data Cleaning**: Filtered out irrelevant cases and ensured consistency in key variables.
+- **Data Sources**:  
+  - Integrated CRM case data.
+  - Included membership information to analyze account-related factors.
 
+- **Data Cleaning**:  
+  - Removed irrelevant cases and ensured consistency in key variables to enhance data integrity for analysis.
+  - Joined the CRM Cases dataset with the Membership dataset
 :::
 
 ## Key Variables
 
 ::: {.incremental}
+- **Churn Definition**:  
+  Established churn based on specific inactive statuses, such as "Inactive - Customer Cancelled," to accurately assess customer retention.
 
--   **Churn Statuses**: Defined churn based on specific inactive statuses (e.g., "Inactive - Customer Cancelled").
--   **Customer Features**: Created metrics such as the number of cases, average case age, and escalation status.
+- **Customer Metrics**:  
+  Developed key features including:
+  - **Number of Cases**: Frequency of customer interactions.
+  - **Average Case Age**: Duration of cases to gauge responsiveness.
+  - **Escalation Status**: Indicator of case urgency and potential customer dissatisfaction.
+  - **Site**: Location of Waterman Offices
 :::
 
-# Exploratory Data Analysis (EDA) {.center}
+# Exploratory Data Analysis (EDA) {background-color="#005E5E"}
 
-## Distribution of Cases
+## Distribution of Cases {.smaller}
 
 Understanding the distribution of cases by their number and average resolution age.
 
-::: panel-tabset
-## Number of Cases
+:::: panel-tabset
+## Number of Cases {.smaller}
+
+:::: {.columns}
+
+::: {.column width="80%"}
 
 ```{r}
 ggplot(customer_features_clean, aes(x = num_cases, fill = as.factor(churned))) +
-  geom_histogram(position = "dodge", binwidth = 1) +
-  labs(title = "Distribution of Number of Cases", x = "Number of Cases", fill = "Churned") +
-  theme_minimal()
+    geom_histogram(position = "dodge", binwidth = 1) +  # Use dodge to separate bars by churn status
+  labs(
+    title = "Distribution of Customers by Number of Cases",
+    x = "Number of Cases", 
+    y = "Number of Customers",
+    fill = "Customer Status"
+  ) +
+  scale_fill_manual(values = c("0" = "steelblue", "1" = "#F08080"), 
+                    labels = c("0" = "Did Not Churn", "1" = "Churned")) +  # Update labels
+  theme_minimal() +
+  theme(legend.position = "right")
+
 ```
 
-## Average Case Age
+:::
 
+::: {.column width="20%"}
+- Churn Rates decrease with increasing number of cases.
+- Varying proportionality between churned and not churned.
+
+:::
+
+::::
+
+## Average Case Age {.smaller}
+
+:::: {.columns}
+
+::: {.column width="70%"}
 ```{r}
 ggplot(customer_features_clean, aes(x = avg_case_age, fill = as.factor(churned))) +
-  geom_histogram(position = "dodge", binwidth = 1) +
-  labs(title = "Distribution of Average Case Age", x = "Average Case Age (Days)", fill = "Churned") +
-  theme_minimal()
+   geom_histogram(position = "dodge", binwidth = 1) + 
+  labs(
+    title = "Distribution of Customers by Average Case Age",
+    x = "Average Case Age (Days)", 
+    y = "Number of Customers",
+    fill = "Customer Status"
+  ) +
+  scale_fill_manual(values = c("0" = "steelblue", "1" = "#F08080"), 
+                    labels = c("0" = "Did Not Churn", "1" = "Churned")) +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+
 ```
 :::
 
-# Results {.center}
-
-
-## Logistic Regression Models: Developed models to assess the impact of customer features on churn.
-
-::: {.panel-tabset}
-
-### Without Interaction Terms
-
-```{r}
-# Function to create a summary table
-model_summary_table <- function(model) {
-  summary_model <- summary(model)
-  coefs <- summary_model$coefficients
-  coefs_table <- as.data.frame(coefs) |>
-    rownames_to_column(var = "Variable") |>
-    kable("html", caption = "Logistic Regression Model Summary") |>
-    kable_styling("striped", full_width = FALSE)
+::: {.column width="30%"}
+  - Churn Rates decrease with increasing average age of case resolutions.
+  - Varying proportionality between churned and not churned.
   
-  return(coefs_table)
-}
+- Could the varying proportionality be due to chance? Worth some digging.
+:::
 
-```
+::::
+
+::::
+
+# Results {background-color="#005E5E"}
 
 
-```{r}
-model_summary_table(log_model)
+## Model Key Findings: What May Impact Churn?
 
-```
+::: {.incremental}
 
-### With Interaction Terms
+- **Key Predictors**:  
+  Significant predictor: **Is Escalated** (p < 0.001).
 
-```{r}
-model_summary_table(int_model)
+- **Non-significant Factors**:  
+  - **Num Cases**: p = 0.458  
+  - **Avg Case Age**: p = 0.651  
+  - **Site**: No significant differences across sites.
 
-```
+- **Interpretation**:  
+  - Escalation status is a strong indicator of churn likelihood; other factors require further exploration.
+  - Intercept: When all predictors are at zero, likelihood of churning is very low.
 
 :::
 
-# Recommendations and Limitations {.center}
+# Recommendations and Limitations {background-color="#005E5E"}
 
 ## Future Directions
 ::: {.incremental}
@@ -249,5 +330,5 @@ model_summary_table(int_model)
 - **Short Time Frame**: Analysis is based on a limited period; longer-term trends could differ.
 :::
 
-# Q/A {.center}
+# Q/A {background-color="#005E5E"}
 
