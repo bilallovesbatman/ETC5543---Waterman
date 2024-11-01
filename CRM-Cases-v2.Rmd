@@ -6,13 +6,17 @@ output:
   bookdown::pdf_document2:
     toc: true
     number_sections: true
+header-includes:
+  - \usepackage{float}
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
 ```{r}
+#Load the relevant libraries
+
 library(tidyverse)
 library(readxl)
 library(visdat)
@@ -21,11 +25,14 @@ library(knitr)
 library(bookdown)
 library(patchwork)
 library(gridExtra)
+library(broom)
+library(pscl)
 library(caret)
-library(pROC)
 ```
 
 ```{r, warning=FALSE}
+#Loading the data
+
 wmcases <- read_xlsx("data/CRM Cases 1-08-2024 5-17-55 PM.xlsx")
 memberships <- read_xlsx("data/All Products 2023 to now.xlsx")
 
@@ -45,29 +52,33 @@ Through the CRM system, Waterman Workspaces keeps a record of the numerous inter
 
 The objectives and significance of the report include:
 
-- Identifying the key drivers for churn: Assess the variables that influence that lead to customers churning. The variables investigated in the report include the number of cases, their resolution time, case escalations, and whether different sites of Waterman Workspaces have greater churns. Accurate analysis gives birth to formulating targeted strategies.
+- **Foster a Data-Driven Culture:** Using data to derive insights cultivates a culture of making informed decisions. Our analysis served as a stepping stone for understanding Waterman Wokrspaces' customer engagement by understanding the CRM Cases data that allowed us to view the frequency of cases and their resolution times among other factors.
 
-- Modelling and quantifying the impact: Determining how the potential drivers affect churn likelihood via logistic regression modeling.
+- **Identifying the Key Drivers for Churn:** The primary objective is to assess the variables that influence that lead to customers churning. The variables investigated in the report include the number of cases, their resolution time, case escalations, and whether different sites of Waterman Workspaces have greater churns. Accurate analysis gives birth to formulating targeted strategies. Understanding these drivers will allow for a focused approach on areas most associated with customer churn.
 
-- Develop actionable insights for long-term success: Provide data-driven recommendations to the organization that are concise and understood with ease for the business for retention strategies. Fostering informed decision-making leads to enhanced overall business performance.
+- **Develop a Predictive Model for Churn:** Logistic modelling is used with the aim to estimate the probability of a customer churning based on the provided CRM data. This approach provides incentives to act proactively in order to retain customers and minimize future churns.
 
+- **Informed Retention Strategies**: Our analysis will allow for pointing out at-risk customers to aid in developing tailored retention strategies. By providing customized solutions, Waterman Workspaces can engage with their customers before they cancel.
+
+- **Enhance Business Sustainability and Gain Competitive Advantage:** The main objective of our analysis is to aid Waterman Workspaces to keep their customers happy who in return keep the business running while attracting further potential suitors. Thus, reducing customer churn not only boosts profits, but it also places Waterman Workspaces in a healthy position in the market and having a competitive edge in the co-working space industry.
 
 # Methodology
 
-## Data Cleaning and Joining
+## Data Cleaning and Preparation
 
-The data was provided the host organization in the form of 2 primary datasets; CRM Cases data (`wmcases`) and membership data (`memberships`). 
+### Data Background and Review
+
+The data was provided by the host organization in the form of 2 primary datasets; CRM Cases data (`wmcases`) and membership data (`memberships`). The data for the cases is kept in the CRM system while the membership data was kept elsewhere and undisclosed. However, they were shared via Microsoft's SharePoint folder securely. After retrieving the data, numerous meetings with the supervisor took place over the course of five to six weeks to review the data and discuss the requirement such as exploring the data fields in ways that maintained the integrity and privacy of the data. Thus, any information that would help identify a customer personally and intimately were opted to be excluded before loading.
 
 The CRM Cases data output is seen below where we can see the variables that come along with it followed by the variables in the memberships data (see Tables \@ref(tab:var-table-cases) and \@ref(tab:var-table-member)).
 
-```{r var-table-cases, echo=FALSE, }
-# Extract column names
+```{r var-table-cases, echo=FALSE, table.pos = 'H'}
+# Extracting column names and adding headers for the columns
 variable_list <- as.data.frame(matrix(names(wmcases), ncol = 2, byrow = TRUE))
 
-# Add column headers
 colnames(variable_list) <- c("Variables", "Variables")
 
-# Display the variables in a two-column table
+# Display the variables in a table
 
 kable(variable_list, 
       caption = "List of Variables in the `wmcases` Dataset", 
@@ -75,19 +86,22 @@ kable(variable_list,
 ```
 
 ```{r var-table-member, echo=FALSE}
-# Extract column names
+# Extract column names and displaying as table again
+
 variable_list2 <- as.data.frame(matrix(names(memberships), ncol = 2, byrow = TRUE))
 
-# Add column headers
 colnames(variable_list2) <- c("Variables", "Variables")
 
-# Display the variables in a two-column table
 kable(variable_list2, 
       caption = "List of Variables in the `memberships` Dataset", 
       align = "l")
 ```
 
-Upon consultation with the relevant personnel in the organization, the variables and observations that were not needed were removed from our analysis. Moreover, since the key variable was the *Account Number* of the customers, due diligence was made to ensure blanks and non-customer observations were removed as well. When the irrelevant observations and variables were removed, the 2 datasets were joined using a left join by using the `Account Number` as the key variable. The left join was essential as it retained all records of the CRM data and the matching records of the memberships data so that every case lodged in the CRM system was included in the analysis even if some memberships data for customers was missing. In theory, this approach factors in customers that may have recently joined in or left already.
+### Data Cleaning and Joining
+
+Upon consultation with the relevant personnel in the organization, the variables and observations that were not needed were removed from our analysis. Moreover, since the key variable was the *Account Number* of the customers, due diligence was made to ensure blanks and non-customer observations were removed as well. When the irrelevant observations and variables were removed, the 2 datasets were joined using a left join by using the customers' account numbers. Since the mentioned account variables were differently named in the datasets, namely `Account Number (Customer) (Account)` in the CRM data and `Account Number (Lessee) (Account)`in the membership data, they were both renamed to be `Account Number` for our analysis to make a left join possible.
+
+The left join was essential as it retained all records of the CRM data and the matching records of the memberships data so that every case lodged in the CRM system was included in the analysis even if some memberships data for customers was missing. In theory, this approach factors in customers that may have recently joined in or left already.
 
 ```{r}
 cases_clean <- wmcases |>
@@ -97,50 +111,58 @@ cases_clean <- wmcases |>
            !grepl("Purchase orders", Subject, ignore.case = TRUE) &
            !grepl("Rent/Membership assistance", Subject, ignore.case = TRUE) &
            !grepl("All retired ones", Subject, ignore.case = TRUE) &
-           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE)) |>
-  filter(!is.na(`Account Number (Customer) (Account)`)) |>
-  rename(`Account Number` = `Account Number (Customer) (Account)`) |>
-  select(-`(Do Not Modify) Case`, -`(Do Not Modify) Row Checksum`, -`(Do Not Modify) Modified On`)
+           !grepl("\\(RETIRED\\)", Subject, ignore.case = TRUE)) |> # Removing the undesired observations containing those words
+  filter(!is.na(`Account Number (Customer) (Account)`)) |> # Removing NAs
+  rename(`Account Number` = `Account Number (Customer) (Account)`) |> # Renaming to Account Number
+  select(-`(Do Not Modify) Case`, -`(Do Not Modify) Row Checksum`, -`(Do Not Modify) Modified On`) # Removing unnecessary columns
 
 member_clean <- memberships |>
-  filter(!grepl("Quote Duplicate", `Status Reason`, ignore.case = TRUE)) |>
-  filter(!grepl("Casual Hire", `Accounting Code`, ignore.case = TRUE)) |>
-  filter(!is.na(`Account Number (Lessee) (Account)`)) |>
-  rename(`Account Number` = `Account Number (Lessee) (Account)`)
+  filter(!grepl("Quote Duplicate", `Status Reason`, ignore.case = TRUE)) |> 
+  filter(!grepl("Casual Hire", `Accounting Code`, ignore.case = TRUE)) |> # Removing the undesired observations containing those words
+  filter(!is.na(`Account Number (Lessee) (Account)`)) |> # Removing NAs
+  rename(`Account Number` = `Account Number (Lessee) (Account)`) # Renaming to Account Number
 
 ```
 
 ```{r}
+# Joining the Datasets using left join
+
 cases_joined <- left_join(cases_clean, member_clean, by = "Account Number")
 
 ```
 
+```{r}
+glimpse(cases_joined)
+```
+As we can see using the `glimpse` function, the joining method produces `r ncol(cases_joined)` columns and `r nrow(cases_joined)`. Moreover, the variables' types look to be correct.
+
 ## Creating the Final Data Subset
 
-The merged data produced a large dataset with an increasing number of variables that needed to be cleaned further. As before, potential `NA` values were catered for and further nonessential variables and observations were removed. The resulting dataset had the following variables listed in Table \@ref(tab:var-table-joined):
+The merged data having produced a large dataset with an increasing number of variables, there needed to be further cleaning. As before, potential `NA` values were catered for and further nonessential variables and observations were removed. Such examples included a repeating column reflecting the account numbers, and the priority column along with the customer sentiments had no records. Such columns were removed and rows that were raised internally but Waterman themselves and test cases were removed.
+
+The resulting dataset had the following variables listed in Table \@ref(tab:var-table-joined):
 
 ```{r}
-cases_joined <- cases_joined |>
+cases_joined <- cases_joined |> #choosing relevant variables and observations
   select(`Account Number`, `Customer`, `Case Number`, `Case Title`, `Case Age`, `Case Age (Days)`, 
          `Is Escalated`, everything(), -Priority, -`Modified On`, -Satisfaction, -`Sentiment Value`, 
          -`Service Level`, -SLA, -Severity, -Status.y, -`Product Name`, -Location, -`Accounting Code`, 
-         -`Status Reason.x`, -`Industry (Lessee) (Account)`, -Lessee) |>
+         -`Industry (Lessee) (Account)`, -Lessee, -`Account Category (Lessee) (Account)`, -`Lease Products`) |>
   mutate(
     Site = as.factor(Site),
     `Product Category` = as.factor(`Product Category`)) |>
   filter(!grepl("TestPayment", `Account Number`, ignore.case = TRUE)) |>
-  filter(!grepl("Waterman Workspaces", `Customer`, ignore.case = TRUE))
+  filter(!grepl("Waterman Workspaces", `Customer`, ignore.case = TRUE)) |>
+  filter(!grepl("Tester", `Customer`, ignore.case = TRUE))
 
 ```
 
-```{r var-table-joined}
-# Extract column names and format them into two columns
+```{r var-table-joined, table.pos='H'}
+# Extract column names and creating table
 variable_list3 <- as.data.frame(matrix(names(cases_joined), ncol = 2, byrow = TRUE))
 
-# Add column headers
 colnames(variable_list3) <- c("Variables", "Variables")
 
-# Display the table with a caption
 kable(variable_list3, 
       caption = "Variables in the cases joined Dataset", 
       align = "l")
@@ -154,54 +176,83 @@ Next, a vector was created to define churn statuses that includes
 
 The mentioned attributes were selected upon consultations and discussions with the supervisor.
 
-Using the defined churn statuses, a new subset of the data was formed, namely `customer_features`. The cases were grouped by their account numbers and summarized to count the number of cases per account and a similar process was followed to summarize by the average case age as well to provide insights into a the typical duration of cases for each customer. In addition, the median was taken for the case ages over a mean to handle the skewness of the data. In such scenarios, mean is sensitive to extreme data points which could provide an untrue picture of the time it takes to resolve a case. On the other hand, the median takes the ***50th percentile*** (the central point). Moreover, `churned` was created as a binary variable. The logic behind making it binary was that either a customer churns or does not churn and this case, `1` meant churned and `0` meant not churned.
+Using the defined churn statuses, a new subset of the data was formed, namely `customer_features`. The cases were grouped by their account numbers and summarized to count the number of cases per account and a similar process was followed to summarize by the average case age as well to provide insights into a the typical duration of cases for each customer. In addition, the median was taken for the case ages over a mean to handle the skewness of the data. In such scenarios, mean is sensitive to extreme data points which could provide an untrue picture of the time it takes to resolve a case. On the other hand, the median takes the ***50th percentile*** (the central point). Exactly half of the data points are less than the median, and exactly half of the data points are greater than the median. It’s right in the middle and it is not affected by outliers or skewed data (Orn, 2023).  Moreover, `churned` was created as a binary variable. The logic behind making it binary was that either a customer churns or does not churn and in this case, `1` meant churned and `0` meant that the customer did not churn.
 
-Additionally, `product_category` was created which retained the first product associated with the account to reflect the main product used by the customer. The initial reasoning behind including the product categories was to analyze whether different categories had varying churn rates. A similar approach was taken to incorporate the `site` variable to subset to investigate a sites of the organizations have varying churn rates that could point towards service quality issues. The joined dataset was further filtered to include another binary variable `Is Escalated` that was created to provide numeric representation to of case escalation. Here, when a case is marked "Yes", the final value is converted to `1` and `0` otherwise. Finally, steps were taken to ensure that the `product_category` and `site` variables were converted to factor.
+Additionally, `product_category` was created which retained the first product associated with the account to reflect the main product used by the customer. The initial reasoning behind including the product category was to analyze whether different categories had varying churn rates. A similar approach was taken to incorporate the `site` variable to the subset to investigate whether the sites of the organizations have varying churn rates that could point towards service quality issues geographically.
+
+The joined dataset was further filtered to include another binary variable `Is Escalated` that was created to provide numeric representation for the case escalations. Here, when a case is marked as "Yes" in escalations, the final value is converted to `1` and `0` otherwise. Finally, steps were taken to ensure that the `product_category` and `site` variables were converted to factor.
 
 ```{r}
-churn_statuses <- c("Inactive - Customer Cancelled", "Off-boarding", "Inactive")
+churn_yes <- c("Inactive - Customer Cancelled", "Off-boarding", "Inactive")  # Defining what values mean churn
 
-cases_filtered <- cases_joined |>
-  filter(`Status Reason.y` %in% churn_statuses | is.na(`Status Reason.y`)) |>
-  mutate(`Is Escalated` = ifelse(`Is Escalated` == "Yes", 1, 0))
+cases_with_churn <- cases_joined |>
+  mutate(
+    `Is Escalated` = ifelse(`Is Escalated` == "Yes", 1, 0),
+    churned = as.integer(`Status Reason.y` %in% churn_yes)
+  )
 
 ```
 
 ```{r}
-customer_features <- cases_filtered |>
+customer_features <- cases_with_churn |>
   group_by(`Account Number`) |>
   summarise(
     num_cases = n(),
     case_age = median(`Case Age (Days)`, na.rm = TRUE),
-    churned = as.integer(any(`Status Reason.y` %in% churn_statuses)),
-    product_category = first(`Product Category`),  # Ensure logical first() use
-    site = first(`Site`),  # Assuming consistent site for account
-    is_escalated = max(`Is Escalated`, na.rm = TRUE)  # Escalation as binary
-  )
-
-# Ensure 'product_category' and 'site' remain as factors
-customer_features <- customer_features |>
+    churned = max(churned),  # Sets 1 if any status in `churn_statuses` is present
+    product_category = first(`Product Category`),
+    site = first(`Site`),
+    is_escalated = max(`Is Escalated`, na.rm = TRUE) # Sets 1 if any case is escalated
+  ) |>
   mutate(
     product_category = as.factor(product_category),
-    site = as.factor(site)
+    site = as.factor(site) # Treating Site and Product Categories as factors
   )
 
 ```
 
-```{r}
-# Extract column names and format them into two columns
+### Choosing the final Variables
+
+We used the `vis_dat` and the `vis_miss` funcitons for another observation of the types of data and the missing values in any other variables.
+
+```{r vis-plot, fig.cap="Comparison of dataset structure and missing values.", echo=FALSE, fig.height=5, fig.width=10, fig.pos='H'}
+vp1 <- vis_dat(customer_features)
+
+vp2 <- vis_miss(customer_features)
+
+vp1 + vp2
+```
+
+Figure \@ref(fig:vis-plot) shows that little of the observations missing in site while product category had almost half of it's observations missing (about 47%). TO numerically assess, the product categories were isolated next.
+
+```{r product-table, table.pos='H'}
+# Creating a frequency table for product categories
+product_category_table <- customer_features |>
+  group_by(product_category) |>
+  summarise(Count = n()) |>
+  arrange(desc(Count))
+
+kable(product_category_table, caption = "Product Categories in Customer Features Dataset")
+
+
+```
+
+While we are able to see what type the variables are, Figure \@ref(fig:vis-plot) and \@ref(tab:product-table) shows that there are a significant number of missing observations in `product_category`. Due to a significantly high proportion of missing values of the product categories, the variable was not included in our analysis as the missing values would distort our results and provide little to no meaningful analysis. One thing interesting to point out was that the table also provided further information on the total number of each type of product subscribed. Having a healthier number of observations would have given an incentive to investigate how popular products' subscribers performed in our churn analysis. 
+
+```{r noprod-table, table.hold='H'}
+customer_features <- customer_features |>    # Removing product categories
+  select(-product_category)
+
 variable_list4 <- as.data.frame(matrix(names(customer_features), ncol = 1, byrow = TRUE))
 
-# Add column headers
 colnames(variable_list4) <- "Variables"
 
-# Display the table with a caption
 kable(variable_list4, 
       caption = "Variables in the customer features Dataset", 
       align = "l")
 ```
 
-The final variables used for our analysis and their explanation are as follows:
+Thus, as seen the table \@ref(tab:noprod-table), the final variables that were chosen for our analysis and their explanations are as follows:
 
 - `Account Number`: A unique identifier of a customer.
 
@@ -211,35 +262,22 @@ The final variables used for our analysis and their explanation are as follows:
 
 - `churned`: A binary indicator that shows whether a customer churned or did not churn.
 
-- `product_category`: The type of membership subscribed by the customer.
-
 - `site`: The site or the location of the customer of Waterman.
 
 - `is_escalated`: A binary indicator that shows whether a case raised by the customer was escalated.
 
+This section of the project took the most time as it required careful considerations and numerous discussions to decide our choices of the variables and observations. Some observations were voluntarily removed while some were required to be removed without further explanation.
+
 ## Exploratory Data Analysis
-
-### Ensuring the Data is Clean and Structured
-
-```{r vis-plot, fig.cap="Comparison of dataset structure and missing values.", echo=FALSE, fig.height=5, fig.width=10}
-vp1 <- vis_dat(customer_features)
-
-vp2 <- vis_miss(customer_features)
-
-vp1 + vp2
-```
-
-While we are able to what type the variables are, Figure \@ref(fig:vis-plot) shows that there are a significant number of missing observations in `product_category`. Due to a significantly high proportion of missing values of the product categories, the variable was not included in our analysis as the missing values would distort our analysis and provide little to no meaningful analysis.
 
 ### Summary Description
 
-```{r summary-table}
-# Generate summary
+```{r summary-table, table.hold='H'}
+# Generating a summary
 summary_stats <- customer_features |>
-  select(num_cases, case_age, churned, is_escalated, product_category, site) |>
+  select(num_cases, case_age, churned, is_escalated, site) |>
   summary()
 
-# Display the custom summary
 kable(summary_stats, 
       caption = "Custom Summary for Selected Variables", 
       align = "l", 
@@ -251,12 +289,14 @@ kable(summary_stats,
 ```
 
 
-Table \@ref(tab:summary-table) shows the overall summary of the subset. It illustrates that a customer raises 4.246 issues on average and it takes an average of 39 days to resolve the issue. Both `num_cases` and `case_age` have medians lower than the mean that signal positive skewness which will be visualized next. Moreover, the table provides further information on the total number of each type of product a customer has subscribed to and the  umber of customers at each site.
+Table \@ref(tab:summary-table) shows the overall summary of the subset. It illustrates that a customer raises 4.246 issues on average and it takes an average of 39 days to resolve the issue. Both `num_cases` and `case_age` have medians lower than the mean that signal positive skewness which will be visualized next.
 
 
 ### Distribution of Case Frequency and Case Age (with outliers)
 
-```{r outlier-plot, fig.cap= "Outlier Distributions", echo=FALSE, fig.height=5, fig.width=10}
+```{r outlier-plot, fig.cap= "Outlier Distributions", echo=FALSE, fig.height=5, fig.width=10, fig.pos='H'}
+# Generating histograms
+
 his1 <- ggplot(customer_features, aes(x = num_cases, fill = as.factor(churned))) +
     geom_histogram(position = "dodge", binwidth = 1) +
   labs(
@@ -283,7 +323,7 @@ his2 <-ggplot(customer_features, aes(x = case_age, fill = as.factor(churned))) +
   theme_minimal() +
   theme(legend.position = "right")
 
-grid.arrange(his1, his2, ncol = 2)
+grid.arrange(his1, his2, ncol = 2) # Arranging the outputs side-by-side
 
 ```
 
@@ -313,7 +353,7 @@ IQR_num <- Q3_num - Q1_num
 lower_bound_num <- Q1_num - 1.5 * IQR_num
 upper_bound_num <- Q3_num + 1.5 * IQR_num
 
-customer_features_clean <- customer_features_clean |>
+customer_features_clean <- customer_features_clean |> # Removing outliers
   filter(num_cases >= lower_bound_num & num_cases <= upper_bound_num)
 
 ```
@@ -322,8 +362,8 @@ customer_features_clean <- customer_features_clean |>
 
 Before visualizing the number of cases and the case resolution times, we first review a holistic comparison of customers churning against the customers who did not churn from the final cleaned subset of the data. Figure \@ref(fig:churn-plot) below illustrates that There are `r sum(customer_features_clean$churned == 1)` customers who churned and `r sum(customer_features_clean$churned == 0)` customers who did not churn.
 
-```{r churn-plot, fig.cap= "Analyzing Customers Churning", echo=FALSE, fig.height=5, fig.width=10}
-# Count of churned vs. not churned
+```{r churn-plot, fig.cap= "Analyzing Customers Churning", echo=FALSE, fig.height=5, fig.width=10, fig.pos='H'}
+# Count of churned and not churned
 churn_counts <- table(customer_features_clean$churned)
 
 churn_plot <- ggplot(as.data.frame(churn_counts), aes(x = Var1, y = Freq, fill = Var1)) +
@@ -342,7 +382,6 @@ churn_plot
 Next, we plot the histograms to analyze the distributions from the cleaned data.
 
 ```{r}
-
 his11 <-ggplot(customer_features_clean, aes(x = num_cases, fill = as.factor(churned))) +
     geom_histogram(position = "dodge", binwidth = 1) +
   labs(
@@ -371,7 +410,7 @@ his22 <- ggplot(customer_features_clean, aes(x = case_age, fill = as.factor(chur
   theme(legend.position = "right")
 ```
 
-```{r casenum-plot, fig.cap= "Number of Cases Distribution", echo=FALSE, fig.height=5, fig.width=10}
+```{r casenum-plot, fig.cap= "Number of Cases Distribution", echo=FALSE, fig.height=5, fig.width=10, fig.pos='H'}
 his11
 ```
 
@@ -379,7 +418,7 @@ Figure \@ref(fig:casenum-plot) shows number of customers against the number of c
 
 The figure suggests that the distribution of customers by their number of cases is positively skewed which means that there are more customers that faced issues less frequently. Moreover, it shows that as the number of cases increase, the number of customers churning decreases significantly. While this may seem counter-intuitive, it also shows that there decreasing number of customers that face more problems. In this case, it is more important to analyze the proportion of customers that churned versus the customers that did not churn given the number of cases. Even so, the number of customers that leave are still lower than the customers that do not leave at every bin of number of cases.
 
-```{r caseage-plot, fig.cap= "Case Age Distribution", echo=FALSE, fig.height=5, fig.width=10}
+```{r caseage-plot, fig.cap= "Case Age Distribution", echo=FALSE, fig.height=5, fig.width=10, fig.pos='H'}
 his22
 ```
 
@@ -389,7 +428,8 @@ The figure suggests that the distribution of customers against the case age is a
 
 ### Correlation
 
-```{r cor-matrix}
+```{r cor-matrix, table.hold='H'}
+# Creating and displaying  a correlation matrix
 cor_matrix <- cor(
   customer_features_clean |> 
     select(num_cases, case_age, is_escalated, churned))
@@ -402,7 +442,7 @@ kable(cor_matrix,
 
 ```
 
-The correlation matrix in Table \@ref(tab:cor-matrix) produces some interesting points. The correlations between all variables are very weak and inconclusive apart from `is_escalated`. While it was assumed that as the number of cases and case resolution times increase, the impact on churn would increase as well. However, this positive relationship is not observed. On the other hand, cases being escalated have a positive correlation with customers churning albeit having a weak correlation of `r cor(customer_features_clean$is_escalated, customer_features_clean$churned)`
+The correlation matrix in Table \@ref(tab:cor-matrix) produces some interesting points. The correlations between all variables are very weak and inconclusive. While it was assumed that as the number of cases and case resolution times increase, the impact on churn would increase as well. However, this positive correlation is observed to be extremely weak being `r cor(customer_features_clean$num_cases, customer_features_clean$churned)`. On the other hand, cases being escalated have a positive correlation with customers churning as well. However, it too has a very weak correlation of `r cor(customer_features_clean$is_escalated, customer_features_clean$churned)`
 
 ## Logistic Regression Modeling
 
@@ -413,7 +453,13 @@ Moreover, the interpretability of logistic regression is fairly easier as it ind
 The logistic regression model can be expressed as:
 
 $$
-\log\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 \text{num\_cases} + \beta_2 \text{case\_age} + \beta_3 \text{is\_escalated} + \beta_4 \text{product\_category} + \beta_5 \text{site}
+\log\left(\frac{p}{1-p}\right) = \beta_0 + \beta_1 \text{num\_cases} + \beta_2 \text{case\_age} + \beta_3 \text{is\_escalated} + \beta_4 \text{site}
+$$
+
+Or
+
+$$
+\text{churned} \sim \beta_0 + \beta_1 \text{num\_cases} + \beta_2 \text{case\_age} + \beta_3 \text{is\_escalated} + \beta_4 \text{site}
 $$
 
 Where:
@@ -433,7 +479,96 @@ This equation produces the log-odds output between 0 and 1, which represents the
 ### Fitting the model
 
 ```{r}
-# Create interaction terms
+log_model <- glm(churned ~ num_cases + case_age + is_escalated + site, data = customer_features_clean, family = binomial)
+
+```
+
+```{r logistic-summary, table.hold='H'}
+# Extracting useful information
+log_model_summary <- tidy(log_model) |>
+  mutate(term = recode(term, 
+                       `(Intercept)` = "Intercept", 
+                       `num_cases` = "Number of Cases", 
+                       `case_age` = "Case Age (Days)", 
+                       `is_escalated` = "Is Escalated",
+                       `site` = "Site")) |>
+  select(term, estimate, std.error, statistic, p.value) |>
+   # renaming for ease of understanding
+  rename(`Predictor` = term, 
+         `Coefficient` = estimate, 
+         `Standard Error` = std.error, 
+         `Z-Value` = statistic, 
+         `P-Value` = p.value)
+
+kable(log_model_summary, caption = "Logistic Regression Model Summary")
+```
+
+```{r r-squared, table.hold='H'}
+# Extracting and displaying the McFadden R² value
+mcfadden_r2 <- pR2(log_model)["McFadden"]
+
+mcfadden_table <- tibble(
+  Metric = "McFadden's R²",
+  Value = mcfadden_r2
+)
+
+kable(mcfadden_table, caption = "Model Fit - McFadden’s R²")
+```
+
+```{r variable-imp, table.hold='H'}
+var_imp <- varImp(log_model)
+
+# Converting the importance output to a data frame
+imp_df <- as.data.frame(var_imp)
+
+# Ensuring the variable names are included as a column
+imp_df <- tibble::rownames_to_column(imp_df, var = "Variable")
+
+# Rename the "Overall" column to "Importance"
+colnames(imp_df)[2] <- "Importance"
+
+kable(imp_df, caption = "Variable Importance")
+```
+
+### Model Interpretation and Summary
+
+The summary of the estimates are provided in Table \@ref(tab:logistic-summary) while the McFadden's R² value and variable importance are displayed in tables\@ref(tab:r-squared) and \@ref(tab:variable-imp) respectively.
+
+The R² value of 0.088 suggests that while our model does explain some variability in the data, it still has low predictive power.
+
+On the other hand, the variable `is_escalated` is considered the most important variable in our data.
+
+
+Each coefficient in the output of the regression reflects the log-odds change in the probability of a customer churning for a 1 unit increase in a predictor while the other predictors are held constant. For testing significance of our predictors, we use the cut-off $\alpha$ = 0.05 (5% significance level).
+
+- **Intercept:** The intercept serves as baseline log-odds of churn when all predictors are valued at zero. The estimate for the intercept is -16.913 but is held insignificant at $\alpha$ = 0.05 significance as the associated p-value is 0.947.
+
+- **Number of Cases:** For each additional case associated with a customer, the log-odds of the customer churning increase by 0.0318. This suggests that as a customer accumulates more cases, or faces more issues, they may be more likely to churn. However, since the p-value > 0.05 (at 0.185), we conclude that this effect is not statistically significant.
+
+- **Case Age (Days):** When a case is unresolved each passing day, the log-odds of a customer churning increase by 0.0059. Initial impressions mean that the longer a case takes to be resolved contribute slightly to the likelihood of a customer churning, it is statistically insignificant as the p-value > 0.05 (at 0.143).
+
+- **Is Escalated:** When a case is escalated (value equals 1), the log-odds of a customer churning increase by 0.794. This reflects a likelihood on the higher side and is statistically significant since p-value < 0.05 (at `r format(1.16e-5, scientific = TRUE)`). Thus we conclude with confidence that the escalated cases are associated with a higher probability of a customer churning. This also suggest that this is a strong indicator of a customer's dissatisfaction.
+
+-**Site:** There were several sites in our data and they had to be coded as dummy variables for our analysis purposes. Each coefficient of a site compares it with a reference category. However, none of the sites have a p-value lower than 0.05, meaning that this model suggests no individual site has any meaningful nor significant contribution to a customer's likelihood of churning.
+
+This model does provide potentially valuable insights, but it points towards the need for further refinement. While an escalated case is picked out to be the strongest and the most significant predictor from our data, the rest of the variables not being significant means we need more meaningful predictors. That said, it can be initially concluded that investigating the escalated cases further could prove to be beneficial in retaining customers.
+
+## Using Interaction Terms and Logistic Regression Model
+
+In order to enhance our mode, we decided to see how interaction terms behaved and affected our model. The objective ehre was to see whether the model is enhanced and if there are any changes to our results.
+
+### Creating Interaction Terms
+
+The following interaction terms were defined our `customer_features_clean` dataset:
+
+- **num_cases_escalated:** This variable represents the interaction between the number of cases variable and the escalated case variable. The significance of this variable is that it would allow us to assess whether the effect of the number of cases on churn is different when the cases are escalated as compared to when the cases are not escalated.
+
+- **case_age_escalated:** This variable is derived from the interaction between the case age variable and the escalated case variable. This term will allow us to assess whether older cases have any influence on the customers' churn rate depending on their escalation status.
+
+This is an attempt to analyze and reveal the complex relationships the variables have together as compared to being assessed for their main effects alone.
+
+```{r}
+# Creating interaction terms
 customer_features_clean <- customer_features_clean |>
   mutate(
     num_cases_escalated = num_cases * is_escalated,
@@ -442,121 +577,188 @@ customer_features_clean <- customer_features_clean |>
   )
 
 ```
-
-```{r}
-# For reproducibility
-set.seed(125)
-
-train_indices <- createDataPartition(customer_features_clean$churned, p = 0.7, list = FALSE)
-
-# Split the data
-train <- customer_features_clean[train_indices, ]
-test <- customer_features_clean[-train_indices, ]
-
-```
-
-
-```{r}
-log_model <- glm(churned ~ num_cases + case_age + is_escalated + site + num_cases_escalated + case_age_escalated, data = train, family = binomial)
-summary(log_model)
-
-```
-
-Since `site` is not a significant predcitor in our case and is complex to handle, we decide to remove it.
-
-```{r}
-log_model_no_site <- glm(churned ~ num_cases + case_age + is_escalated + num_cases_escalated + case_age_escalated, 
-                          data = train, family = binomial)
-summary(log_model_no_site)
-
-```
-
-
-```{r}
-pscl::pR2(log_model_no_site)["McFadden"]
-```
-
-```{r}
-varImp(log_model_no_site)
-```
-
-```{r}
-car::vif(log_model_no_site)
-```
-
-### Model Diagnostics
-
-```{r}
-predicted_no_site <- predict(log_model_no_site, test, type = "response")
-predicted_churned_no_site <- ifelse(predicted_no_site > 0.5, 1, 0)
-predicted_churned_no_site <- factor(predicted_churned_no_site, levels = c("0", "1"))
-
-```
-
-```{r}
-confusionMatrix(predicted_churned_no_site,
-                as.factor(test$churned))
-```
-
-```{r}
-roc_curve <- roc(test$churned, predicted_no_site)
-
-plot(roc_curve, main = "ROC Curve", col = "blue", lwd = 2)
-
-auc_value <- auc(roc_curve)
-legend("bottomright", legend = paste("AUC =", round(auc_value, 3)), box.lwd = 0, col = "blue", lwd = 2)
-```
-
-
-```{r}
-# Create interaction terms
-customer_features_clean <- customer_features_clean |>
-  mutate(
-    num_cases_escalated = num_cases * is_escalated,
-    case_age_escalated = case_age * is_escalated,
-    site_escalated = interaction(site, is_escalated)
-  )
-
-```
-
 
 ```{r}
 int_model <- glm(churned ~ num_cases + case_age + is_escalated + site + num_cases_escalated + case_age_escalated, data = customer_features_clean, family = binomial)
 
-summary(int_model)
 ```
 
-```{r}
-# Compare models using AIC and BIC
-AIC(log_model, int_model)
-BIC(log_model, int_model)
+The new equation we use for our model is as follows:
+
+$$
+\text{churned} \sim \beta_0 + \beta_1 \text{num\_cases} + \beta_2 \text{case\_age} + \beta_3 \text{is\_escalated} + \beta_4 \text{site} + \beta_5 \text{num\_cases\_escalated} + \beta_6 \text{case\_age\_escalated}
+$$
+
+```{r interaction-model, table.hold='H'}
+# Extracting relevant information
+int_model_summary <- tidy(int_model) |>
+  mutate(term = recode(term, 
+                       `(Intercept)` = "Intercept", 
+                       `num_cases` = "Number of Cases", 
+                       `case_age` = "Case Age (Days)", 
+                       `is_escalated` = "Is Escalated",
+                       `site` = "Site")) |>
+  select(term, estimate, std.error, statistic, p.value) |>
+  # Renaming for ease of understanding
+  rename(`Predictor` = term, 
+         `Coefficient` = estimate, 
+         `Standard Error` = std.error, 
+         `Z-Value` = statistic, 
+         `P-Value` = p.value)
+
+kable(int_model_summary, caption = "Logistic Regression Model Summary")
+```
+
+### Model Interpretation and Summary
+
+In summary, the addition of the interaction terms pose no new insights in our analysis as both the additions are not statistically significant at the 5% confidence level. The escalated case variable remains to be the only significant contributor our model. The results can be viewed in table \@ref(tab:interaction-model).
+
+```{r interaction-squared, table.hold='H'}
+# Extracting and displaying McFadden R²
+mcfadden_int <- pR2(int_model)["McFadden"]
+
+mcfadden_table_int <- tibble(
+  Metric = "McFadden's R²",
+  Value = mcfadden_r2
+)
+
+kable(mcfadden_table_int, caption = "Interaction Model Fit - McFadden’s R²")
+```
+
+Moreover, As we can see in table \@ref(tab:interaction-squared), there is no real change in the R² value that remains at 0.088.
+
+## Model Comparison
+
+```{r model-compare, table.hold='H'}
+# Comparing models using AIC and BIC
+aic_values <- c(AIC(log_model), AIC(int_model))
+bic_values <- c(BIC(log_model), BIC(int_model))
+
+# Creating a table for comparison
+comparison_table <- tibble(
+  Model = c("Logistic Model", "Interaction Model"),
+  AIC = aic_values,
+  BIC = bic_values
+)
+
+# Displaying the comparison table
+kable(comparison_table, caption = "Model Comparison: AIC and BIC")
 
 ```
 
+Finally, we compare the AIC and BIC values of the models as shown in table \@ref(tab:model-compare). A model with the lower AIC and BIC value is preferred and in our case, we observe that the logistic model without the interaction terms performs better in fitting on both fronts without needing to be too complex. While the logistic model with the interaction terms captured some of the complexities offered by the interaction terms, it did not improve the model fit sufficiently to justify the need to add the said interaction terms.
 
-```{r}
-cases_summary <- cases_joined %>%
-  filter(`Status Reason.y` %in% churn_statuses) %>%
-  group_by(`Account Number`, Customer, `Status Reason.y`) %>%
-  summarize(
-    total_cases = n(),
-    avg_case_age = mean(`Case Age (Days)`, na.rm = TRUE),
-    .groups = 'drop'
-  )
+## Modelling Assumptions and Limitations
 
-# Step 2: Clean the summary
-cases_summary_clean <- cases_summary %>%
-  filter(!is.na(total_cases) & !is.na(avg_case_age))
+- **Logical Representation of Customers Churning:** A customer either leaves or does not leave and thus its churn status is defined as either 1 if they leave, or 0 otherwise. It is important to note that this is an oversimplification of churn as there may be numerous attributes and factors that are not captures this way since churn behaviour can be influenced by gradual dissatisfaction which is difficult to quantify.
 
-ggplot(cases_summary, aes(x = total_cases)) +
-  geom_bar(fill = "steelblue") +
-  labs(title = "Number of Cases for Churned Customers", x = "Number of Cases", y = "Count of Customers")
+- **Independent and Unique Cases:** We assume that a case raised by a customer has an independent effect on churn. In reality, a customer may raise multiple cases that may be related to the original, indicating an escalated case. While we do have a column that displays whether a case is escalated or not, the analysis would not capture a cumulative effect of multiple cases that may lead to dissatisfaction.
 
-ggplot(cases_summary, aes(x = "", y = avg_case_age)) +
-  geom_boxplot(fill = "lightgreen") +
-  labs(title = "Case Resolution Time for Churned Customers", y = "Average Case Age (Days)") +
-  theme(axis.text.x = element_blank())
+- **Static Location:** We assume that once a customer purchases a subscription from Waterman Workspaces, the site where they are based in does not change. The static nature of the customer ensures a case is handled within a specified site. If a customer's attribute was dynamic between sites, our analysis could potentially fall to misrepresentation of their influence on churn.
 
-```
+- **Limited Predictors:** While the dataset has enough variables for us to perform our analysis, they are not enough for a more comprehensive and accurate analysis which is also reflected by the R-Squared value. Having more factors such as customer satisfaction ratings and feedback could enrich our model's predictive capacity.
 
+- **Data Quality:** Product category was initially deemed as an important predictor to inspect for our analysis. However, about half of the observations were missing after forming a dataset by joining the cases and membership data. Moreover, important variables such as customer satisfaction, SLA, etc. had no records or entries. Their presence would have allowed for a richer and more detailed analysis.
 
+- **Limited Time-series Analysis:** The data provided did not contain dates and time for when a customer raised an issue and when it was resolved. Instead, the time taken to resolve the cases in minutes and days was provided. Having dates and time would have allowed for some sort of trend analysis and also have us factor in weekends to correctly assume that a case would not be resolved during, say, Saturday and Sunday.
+
+- **Selection Bias:** Since we are analyzing how cases may lead to a customer churning, the data used is only coming from the CRM system. Customers may show dissatisfaction without even raising any cases in the system and such behaviours are underrepresented in our analysis.
+
+Understanding and accepting the limitations and assumptions allows for a transparent view of the difficulties encountered during the phase of the internship. Having limited variables has been very challenging in presenting more material and limited the ability to have more comprehensive modelling and discussions.
+
+## Self Reflection
+
+The tasks and the duration of the placement have been an eventful, insightful, and humbling experiences. Not only did the experience hone my taste and interest in interrogating the numbers more in the future, but it also exposed me to a realm of data in the context for businesses. While there were numerous challenges that I have faced up till finishing writing the report, there was a lot of learning in the process.
+
+The first month and a half was spent in data collection, cleaning, and wrangling. During this time, I learnt how and what to ask for in the spirit of conduction good analysis. Moreover, the numerous meetings held with the supervisor allowed for ease in identifying the variables and observations that were needed for the analysis and which ones needed to be removed. Moreover, as the discovery of data took place, an opportunity to get to understand the business better presented itself as I interacted with numerous coworkers in the office.
+
+The most challenging part, however, was that there was new information regarding the data as soon as I neared the completion of my analysis initially. This meant that new data had to be loaded and understood again; essentially back to square one. The silver lining was that my initial analysis did not produce any significant estimations for customers churning. While my supervisor and the team reassured me that the task is purely for precautionary reasons and there really may be nothing to find, it did not sit right with me. The new data then shed light on new insights and I finally got a significant predictor for customer churn. The only issue was managing time and it cost me timely submissions of my presentations and report. More importantly, it has been a difficult challenge expanding on my work considering the nature of the work given the type of data and analysis required of me which, to me, lacked in more substance and content.
+
+Finally, the units taught during my course have allowed me to demonstrate the skills in a practical and industry setting. In technical learning, being a jack of all trades (having learnt numerous units) made it possible to explore multiple options for our analysis. I have taken many lessons from this experience and I fully intend to apply them in the next phase of my life where I enter the professional realm. I will take the appreciations of data analysis, exploring my problem-solving and adaptability skills, and resiliency in the face of adversity forward.
+
+## Software and Tools Used
+
+The software used for our analysis purposes has purely been R Language on R studio. According to the following research, it is believed that although being a little unfriendly to use, R is perhaps today's best tool for statistical data processing. It provides reliable calculations and almost immeasurable data processing capabilities, but requires at least basic knowledge of the statistical methods used (Hackenberger, 2020). This is a testament to the great capability of the programming language as it offers numerous relevant packages for the task. Moreover, R Studio provides a plethora of options when it comes to presenting a report or, in fact, making presentations. Knitting options such PDF, Word, and HTML are provided with sources such as markdown and Quarto, providing immense flexibility for the user to be creative.
+
+The packages provided by R are easy to use and understand, offering numerous ways to process, quantify, and present data. For the purpose of our tasks and report, the following packages were used:
+
+- **tidyverse:** A powerful collection of packages that work together seamlessly for data wrangling, visualization, and analysis. Key packages used for our tasks were `dplyr` for wrangling and manipulation, `ggplot2` for visualization, and `tidyr` for reshaping our data in the desired output (Wickham et al., 2019). 
+
+- **readxl:** This package allowed for importing Excel files that were in `.xls` or `.xl` format (Wickham & Bryan, 2019).
+
+- **visdat:** The package assist in making visualizations that highlight data types, missing values, and data distributions. For diagnostic purposes, we used the functions `vis_dat` and `vis_miss` (Tierney, 2021).
+
+-**kableExtra:** To be able to articulate outputs that were best viewed in a table format, this package was used for a more clean and appealing look. It is an enhancement on the basic `kable` function to produce more polished reports (Zhu, 2020).
+
+-**knitr:** Without this package, it would not have been possible to produce this report as it compiles and integrates all the outputs within a single document  (Xie, 2015).
+
+-**bookdown:** This package is useful for giving structure to our report as it helps with generating sections, chapters, and citations. This makes longer documents easier to use by providing table of contents and the ability to cross reference (Xie, 2016).
+
+-**patchwork and gridExtra:** Used for arranging multiple `ggplot2` outputs in the document. The packages allowed for a better side-by-side comparison of outputs where necessary (Pedersen, 2020) and (Auguie, 2017).
+
+-**broom:** The package converts model outputs into tidy data frames. In our report, we used the package to display the logistic regression models' outputs for better readibility and interpretation ease by extracting and summarizing the model results (Robinson et al., 2024).
+
+-**pscl:** This package provides tools for assessing model fit in logistic regression. For our case, we used it to extract the McFadden’s R² as a measure of goodness of fit to evaluate our models (Jackman, 2020).
+
+-**caret:** While this package is used extensively for evaluating and training machine learning models, it allowed us to assess the importance of the variables used in our logistic regression models (Kuhn, 2008).
+
+# Conclusion
+
+In conclusion, our analysis explored the factors deemed to be critical for customers churning. We made use of the logistic regression model after intense and comprehensive data cleaning efforts. The use of the logistic regression model was to aide in ease of interpretibility. It was found that while some variability is captured given the variables by our model, there is a need for more explanatory variables. If a case is escalated, a customer is more likely to leave that a customers that do not escalate cases. This was the most statistically significant variable while site, the number of cases per customer, and the average time it took to resolve a case were not statistically significant.
+
+## Limitatations 
+
+The lack of relevant variables in our data has been a consistent complaint. Such a challenge gives birth to the lack of ability to innovate when it comes to trying methods and finding exciting solutions. For example, having customer sentiments after resolving a case could provide for an opportunity to perform sentiment analysis using textual data to give deeper meaning to our insights. Moreover, having correctly labelled case lodge and resolve dates and time would allow for time-series forecasting as well, and if there is enough data over the years, churning seasonality could be identified. This would allow for expanding on such peaks of churn rates and dive deeper into the data to investigate what may have led to such leavers. Thus, data completeness in a longer time-frame is critical for such analysis to produce meaningful insights. There are exciting possibilities if some of these limitations, if not all, are addressed.
+
+## Practical Implications, Recommendations, and Future Analysis
+
+Even with the data quality challenges, there were some actionable insights found that Waterman Workspaces could put to good effect. By focusing on the critical metrics, the organization can reduce their churn rates to desired natural levels. Proactively engaging with the customers who have a higher number of cases lodged during their stay as a customer ensures build of trust. Furthermore, it is recommended to handle cases before there is a need for them to be escalated. However, in the event of cases being escalated, protocols should be developed to resolve them in a timely fashion. Furthermore, more relevant variables would need to be added to have better fitting models to explain the variability and to explore their significance. Data collected by sending out satisfaction surveys may be used in conjunction to enhance the findings and develop further actionable insights.
+
+# References
+
+- Hackenberger, B. K. (2020). R software: unfriendly but probably the best. Croatian Medical Journal, 61(1), 66–68. https://doi.org/10.3325/cmj.2020.61.66
+
+- Orn, A. (2023, December 3). Means and Medians: When To Use Which - Research Collective. Research-Collective.com.         https://research-collective.com/means-and-medians-when-to-use-which/
+
+- Peng, C.-Y. J., Lee, K. L., & Ingersoll, G. M. (2002). An Introduction to Logistic Regression Analysis and Reporting. The Journal of Educational Research, 96(1), 3–14. https://doi.org/10.1080/00220670209598786
+
+- Wickham H, Averick M, Bryan J, Chang W, McGowan LD, François R, Grolemund G, Hayes A, Henry L, Hester J, Kuhn M,
+Pedersen TL, Miller E, Bache SM, Müller K, Ooms J, Robinson D, Seidel DP, Spinu V, Takahashi K, Vaughan D, Wilke C,
+Woo K, Yutani H (2019). “Welcome to the tidyverse.” _Journal of Open Source Software_, *4*(43), 1686.
+doi:10.21105/joss.01686 <https://doi.org/10.21105/joss.01686>.
+  
+- Wickham H, Bryan J (2023). _readxl: Read Excel Files_. R package version 1.4.3,
+<https://CRAN.R-project.org/package=readxl>.
+
+- Tierney N (2017). “visdat: Visualising Whole Data Frames.” _JOSS_, *2*(16), 355. doi:10.21105/joss.00355
+<https://doi.org/10.21105/joss.00355>, <http://dx.doi.org/10.21105/joss.00355>.
+
+- Zhu H (2024). _kableExtra: Construct Complex Table with 'kable' and Pipe Syntax_. R package version 1.4.0,
+<https://CRAN.R-project.org/package=kableExtra>.
+
+- Xie Y (2024). _knitr: A General-Purpose Package for Dynamic Report Generation in R_. R package version 1.48,
+<https://yihui.org/knitr/>.
+
+Yihui Xie (2015) Dynamic Documents with R and knitr. 2nd edition. Chapman and Hall/CRC. ISBN 978-1498716963
+
+Yihui Xie (2014) knitr: A Comprehensive Tool for Reproducible Research in R. In Victoria Stodden, Friedrich Leisch
+and Roger D. Peng, editors, Implementing Reproducible Computational Research. Chapman and Hall/CRC. ISBN
+978-1466561595
+
+- Xie Y (2024). _bookdown: Authoring Books and Technical Documents with R Markdown_. R package version 0.40,
+<https://github.com/rstudio/bookdown>.
+
+Xie Y (2016). _bookdown: Authoring Books and Technical Documents with R Markdown_. Chapman and Hall/CRC, Boca Raton,
+Florida. ISBN 978-1138700109, <https://bookdown.org/yihui/bookdown>.
+
+- Pedersen T (2024). _patchwork: The Composer of Plots_. R package version 1.3.0,
+<https://CRAN.R-project.org/package=patchwork>.
+
+- Robinson D, Hayes A, Couch S (2024). _broom: Convert Statistical Objects into Tidy Tibbles_. R package version
+1.0.6, <https://CRAN.R-project.org/package=broom>.
+
+- Simon Jackman (2024). pscl: Classes and Methods for R Developed in the Political Science Computational Laboratory.
+Sydney, Australia. R package version 1.5.9. URL https://github.com/atahk/pscl/
+
+- Kuhn, M. (2008). Building Predictive Models in R Using the caret Package. Journal of Statistical Software, 28(5),
+1–26. https://doi.org/10.18637/jss.v028.i05
